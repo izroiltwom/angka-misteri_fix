@@ -29,7 +29,16 @@
         <label for="name">Nama Pemain</label>
         <input id="name" type="text" maxlength="20" placeholder="Contoh: Budi">
         <div class="form-two">
-          <div><label for="mode">Mode Permainan</label><select id="mode"><option value="duel">Duel (Bergiliran)</option><option value="lari">Lari (Cepat-cepatan)</option><option value="latihan">Latihan Solo</option></select></div>
+          <div>
+            <label for="mode">Mode Permainan</label>
+            <select id="mode">
+              <option value="duel">Duel (Saling Tebak)</option>
+              <option value="lari">Lari (Cepat-cepatan)</option>
+              <option value="lawan">Lawan (Lomba Angka Server)</option>
+              <option value="kawan">Kawan (Kerja Sama Tim)</option>
+              <option value="latihan">Latihan Solo</option>
+            </select>
+          </div>
           <div><label for="digits">Jumlah Digit</label><select id="digits"><option value="3">3 Digit</option><option value="4">4 Digit</option><option value="5">5 Digit</option><option value="6" selected>6 Digit</option><option value="7">7 Digit</option><option value="8">8 Digit</option></select></div>
         </div>
         <div id="duelSetting"><label for="turnTime">Waktu Per Giliran</label><select id="turnTime"><option value="15">15 detik</option><option value="30" selected>30 detik</option><option value="60">60 detik</option><option value="90">90 detik</option></select></div>
@@ -85,7 +94,7 @@
         <div class="timer-wrap"><small>WAKTU</small><strong id="timer">-</strong></div>
       </div>
       <div class="secret-display">
-        <span>Angka Rahasia Anda</span><strong id="secretDisplay">••••••</strong><button id="showSecretBtn">Tampilkan</button>
+        <span id="secretDisplayLabel">Angka Rahasia Anda</span><strong id="secretDisplay">••••••</strong><button id="showSecretBtn">Tampilkan</button>
       </div>
       <form id="guessForm">
         <input id="guess" type="text" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="Tebak angka lawan">
@@ -110,7 +119,7 @@
         <span class="eyebrow">HASIL PERTANDINGAN</span>
         <h2 id="resultTitle">Permainan Selesai</h2>
         <p id="resultMessage"></p>
-        <div class="result-secrets">
+        <div class="result-secrets" id="resultSecretsContainer">
           <div class="result-secret-card"><span id="resultPlayer1Label">Pemain A</span><strong id="resultSecret1">------</strong></div>
           <div class="result-secret-card"><span id="resultPlayer2Label">Pemain B</span><strong id="resultSecret2">------</strong></div>
         </div>

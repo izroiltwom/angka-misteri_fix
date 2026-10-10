@@ -1,5 +1,5 @@
 // =========================================================
-// ANGKA MISTERI — ROBUST SAFE ENGINE (FIREBASE RTDB)
+// ANGKA MISTERI — REFACTORED CLEAN ENGINE (FIREBASE RTDB)
 // =========================================================
 
 const $ = (id) => document.getElementById(id);
@@ -245,6 +245,37 @@ if (createBtn) {
 
     try {
       const roomRef = db.ref(`rooms/${code}`);
+
+      // MODE LAWAN & KAWAN (Server Generate Secret Otomatis)
+      if (mode === "lawan" || mode === "kawan") {
+        const sharedSecret = generateSecret(digits);
+        await withTimeout(roomRef.set({
+          code,
+          mode,
+          digits,
+          maxGuesses,
+          turnTime,
+          status: "playing",
+          sharedSecret,
+          currentTurn: 1,
+          turnDeadline: Date.now() + turnTime * 1000,
+          created_at: Date.now()
+        }), 5000);
+
+        await withTimeout(roomRef.child("player1").set({
+          id: userId,
+          name: playerName,
+          ready: true
+        }), 5000);
+
+        playerNumber = 1;
+        room = { code, mode, digits, maxGuesses, turnTime };
+        setMessage("setupMessage", "");
+        listenToRoom(code);
+        return;
+      }
+
+      // MODE DUEL & LARI (Manual Secret Setup)
       await withTimeout(roomRef.set({
         code,
         mode,
@@ -323,6 +354,17 @@ if (joinBtn) {
       room = { code: r.code, mode: r.mode, digits: r.digits, maxGuesses: r.maxGuesses, turnTime: r.turnTime };
       hasSubmittedSecret = false;
 
+      if (r.mode === "lawan" || r.mode === "kawan") {
+        await withTimeout(roomRef.child("player2").set({
+          id: userId,
+          name: playerName,
+          ready: true
+        }), 5000);
+        setMessage("setupMessage", "");
+        listenToRoom(code);
+        return;
+      }
+
       await withTimeout(roomRef.child("player2").set({
         id: userId,
         name: playerName,
@@ -361,7 +403,7 @@ function listenToRoom(code) {
     if (!r) return;
     currentRoomData = r;
 
-    // 1. Jika kedua pemain sudah mengisi secret, update status ke playing
+    // 1. Jika mode Duel/Lari dan kedua pemain sudah mengisi secret, update status ke playing
     if (r.status === "secret_setup" && r.player1?.secret && r.player2?.secret) {
       r.status = "playing";
       currentRoomRef.update({
@@ -419,7 +461,7 @@ function listenToRoom(code) {
       }
       processGuesses(r.guesses);
 
-      if (r.mode === "duel") {
+      if (r.mode === "duel" || r.mode === "lawan" || r.mode === "kawan") {
         if (r.turnDeadline && Date.now() > r.turnDeadline && r.currentTurn === playerNumber) {
           const nextT = playerNumber === 1 ? 2 : 1;
           currentRoomRef.update({ currentTurn: nextT, turnDeadline: Date.now() + r.turnTime * 1000 });
@@ -489,7 +531,7 @@ if (forceStartBtn) {
       try {
         const snap = await currentRoomRef.once("value");
         const r = snap.val();
-        if (r && r.player1?.secret && r.player2?.secret) {
+        if (r && (r.mode === "lawan" || r.mode === "kawan" || (r.player1?.secret && r.player2?.secret))) {
           await currentRoomRef.update({
             status: "playing",
             currentTurn: 1,
@@ -524,9 +566,32 @@ function startGameSession(turn) {
   const gameRoomEl = $("gameRoom");
   if (gameRoomEl) gameRoomEl.textContent = room.code;
   const gameModeEl = $("gameMode");
-  if (gameModeEl) gameModeEl.textContent = room.mode === "duel" ? "Duel" : "Lari";
+  if (gameModeEl) {
+    if (room.mode === "lawan") gameModeEl.textContent = "Lawan";
+    else if (room.mode === "kawan") gameModeEl.textContent = "Kawan (Tim)";
+    else if (room.mode === "duel") gameModeEl.textContent = "Duel";
+    else gameModeEl.textContent = "Lari";
+  }
 
-  if (secretDisp) secretDisp.textContent = secretVisible ? secret : "•".repeat(room.digits);
+  // Label kustom untuk mode Kawan
+  const yourHeader = document.querySelector(".history-box.yours h3 span");
+  const theirHeader = document.querySelector(".history-box.theirs h3 span");
+  if (room.mode === "kawan") {
+    if (yourHeader) yourHeader.innerHTML = "🧠 Tebakan Anda";
+    if (theirHeader) theirHeader.innerHTML = "🤝 Tebakan Kawan";
+  } else {
+    if (yourHeader) yourHeader.innerHTML = "🧠 Tebakan Anda";
+    if (theirHeader) theirHeader.innerHTML = "🍀 Tebakan Lawan";
+  }
+
+  if (secretDisp) {
+    if (room.mode === "lawan" || room.mode === "kawan") {
+      secretDisp.textContent = currentRoomData?.sharedSecret || "••••••";
+    } else {
+      secretDisp.textContent = secretVisible ? secret : "•".repeat(room.digits);
+    }
+  }
+
   if (guessInput) guessInput.value = "";
   setMessage("guessMessage", "");
 
@@ -535,8 +600,8 @@ function startGameSession(turn) {
 }
 
 function updateTurnDisplay(turn, seconds, endsAt) {
-  if (room.mode === "lari") {
-    setMessage("turnStatus", "⚡ Silakan menebak!");
+  if (room.mode === "lari" || room.mode === "kawan") {
+    setMessage("turnStatus", room.mode === "kawan" ? "🤝 Kerja sama menebak bersama!" : "⚡ Silakan menebak!");
     const guessBtn = $("guessBtn");
     if (guessBtn) guessBtn.disabled = false;
     stopTimer();
@@ -611,16 +676,23 @@ if (guessForm) {
     }
 
     if (!currentRoomRef || !currentRoomData) return;
-    const oppNum = playerNumber === 1 ? 2 : 1;
-    const oppSecret = currentRoomData[`player${oppNum}`]?.secret;
-    if (!oppSecret) {
-      setMessage("guessMessage", "Menunggu rahasia lawan...");
+
+    let targetSecret = "";
+    if (room.mode === "lawan" || room.mode === "kawan") {
+      targetSecret = currentRoomData.sharedSecret;
+    } else {
+      const oppNum = playerNumber === 1 ? 2 : 1;
+      targetSecret = currentRoomData[`player${oppNum}`]?.secret;
+    }
+
+    if (!targetSecret) {
+      setMessage("guessMessage", "Menunggu rahasia target...");
       return;
     }
 
     isProcessingGuess = true;
     try {
-      const res = calculateBH(oppSecret, val);
+      const res = calculateBH(targetSecret, val);
       const count = myHistory.length + 1;
       await currentRoomRef.child(`guesses/player${playerNumber}`).push({
         guess: val,
@@ -634,8 +706,12 @@ if (guessForm) {
       setMessage("guessMessage", "");
 
       if (res.betul === room.digits) {
-        await finishMatch(playerNumber);
-      } else if (room.mode === "duel") {
+        if (room.mode === "kawan") {
+          await finishMatch(3); // Kawan menang bersama
+        } else {
+          await finishMatch(playerNumber);
+        }
+      } else if (room.mode === "duel" || room.mode === "lawan") {
         const nextT = playerNumber === 1 ? 2 : 1;
         await currentRoomRef.update({ currentTurn: nextT, turnDeadline: Date.now() + room.turnTime * 1000 });
       }
@@ -699,7 +775,11 @@ async function finishMatch(winnerNum) {
     const d1 = s1?.val() || {};
     const d2 = s2?.val() || {};
 
-    if (winnerNum === 1) {
+    if (winnerNum === 3) {
+      // Kawan / Kerja sama menang bersama
+      r1.update({ points: (d1.points||0)+1, wins: (d1.wins||0)+1, games: (d1.games||0)+1 }).catch(()=>{});
+      r2.update({ points: (d2.points||0)+1, wins: (d2.wins||0)+1, games: (d2.games||0)+1 }).catch(()=>{});
+    } else if (winnerNum === 1) {
       r1.update({ points: (d1.points||0)+1, wins: (d1.wins||0)+1, games: (d1.games||0)+1 }).catch(()=>{});
       r2.update({ points: (d2.points||0)+0, losses: (d2.losses||0)+1, games: (d2.games||0)+1 }).catch(()=>{});
     } else if (winnerNum === 2) {
@@ -712,8 +792,8 @@ async function finishMatch(winnerNum) {
     status: "finished",
     winner: winnerNum,
     secrets: {
-      player1: currentRoomData.player1?.secret || "-",
-      player2: currentRoomData.player2?.secret || "-"
+      player1: currentRoomData.sharedSecret || currentRoomData.player1?.secret || "-",
+      player2: currentRoomData.sharedSecret || currentRoomData.player2?.secret || "-"
     }
   }).catch(()=>{});
 }
@@ -737,7 +817,7 @@ function showResultScreen(winner, r) {
   stopTimer();
   showScreen("resultScreen");
   const p1N = r.player1?.name || "Pemain A";
-  const p2N = r.player2?.name || "Peran B";
+  const p2N = r.player2?.name || "Pemain B";
   const resP1 = $("resultPlayer1Label");
   const resP2 = $("resultPlayer2Label");
   const resSec1 = $("resultSecret1");
@@ -746,21 +826,33 @@ function showResultScreen(winner, r) {
 
   if (resP1) resP1.textContent = p1N;
   if (resP2) resP2.textContent = p2N;
-  if (resSec1) resSec1.textContent = r.secrets?.player1 || "-";
-  if (resSec2) resSec2.textContent = r.secrets?.player2 || "-";
+  const secretTarget = r.sharedSecret || r.secrets?.player1 || r.player1?.secret || "-";
+  if (resSec1) resSec1.textContent = secretTarget;
+  if (resSec2) resSec2.textContent = secretTarget;
 
   if (resLine) {
-    resLine.innerHTML = `
-      <div><span>${p1N}</span><strong>${r.winner === 1 ? "Menang" : "Kalah"}</strong></div>
-      <div><span>${p2N}</span><strong>${r.winner === 2 ? "Menang" : "Kalah"}</strong></div>
-    `;
+    if (r.mode === "kawan") {
+      resLine.innerHTML = `
+        <div><span>${p1N}</span><strong>Menang Bersama (Tim)</strong></div>
+        <div><span>${p2N}</span><strong>Menang Bersama (Tim)</strong></div>
+      `;
+    } else {
+      resLine.innerHTML = `
+        <div><span>${p1N}</span><strong>${r.winner === 1 ? "Menang" : "Kalah"}</strong></div>
+        <div><span>${p2N}</span><strong>${r.winner === 2 ? "Menang" : "Kalah"}</strong></div>
+      `;
+    }
   }
 
   const resIcon = $("resultIcon");
   const resTitle = $("resultTitle");
   const resMsg = $("resultMessage");
 
-  if (winner === playerNumber) {
+  if (r.mode === "kawan") {
+    if (resIcon) resIcon.textContent = "🤝";
+    if (resTitle) resTitle.textContent = "Misi Berhasil!";
+    if (resMsg) resMsg.textContent = "Kalian berhasil bekerja sama menebak angka rahasia tim!";
+  } else if (winner === playerNumber) {
     if (resIcon) resIcon.textContent = "🏆";
     if (resTitle) resTitle.textContent = "Anda Menang!";
     if (resMsg) resMsg.textContent = "Hebat! Tebakanmu lebih akurat.";
