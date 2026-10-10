@@ -442,6 +442,27 @@ $("secretBtn").addEventListener("click", async () => {
   }
 });
 
+$("forceStartBtn").addEventListener("click", async () => {
+  if (currentRoomRef) {
+    try {
+      const snap = await currentRoomRef.once("value");
+      const r = snap.val();
+      if (r && r.player1?.secret && r.player2?.secret) {
+        await currentRoomRef.update({
+          status: "playing",
+          currentTurn: 1,
+          turnDeadline: Date.now() + (r.turnTime || 30) * 1000
+        });
+        startGameSession(1);
+      } else {
+        setMessage("secretMessage", "Menunggu lawan menyimpan angka rahasia...");
+      }
+    } catch (err) {
+      setMessage("secretMessage", "Gagal masuk game: " + err.message);
+    }
+  }
+});
+
 function startGameSession(turn) {
   $("scoreboard").classList.remove("hidden");
   $("secretDisplay").parentElement.classList.remove("hidden");
