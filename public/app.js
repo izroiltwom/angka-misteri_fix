@@ -1,8 +1,12 @@
 // =========================================================
-// ANGKA MISTERI — REFACTORED CLEAN ENGINE (FIREBASE RTDB)
+// ANGKA MISTERI — ROBUST SAFE ENGINE (FIREBASE RTDB)
 // =========================================================
 
 const $ = (id) => document.getElementById(id);
+
+function safeAdd(id, cls) { const el = $(id); if (el) el.classList.add(cls); }
+function safeRemove(id, cls) { const el = $(id); if (el) el.classList.remove(cls); }
+function safeToggle(id, cls, force) { const el = $(id); if (el) el.classList.toggle(cls, force); }
 
 let userId = localStorage.getItem("am_user_id") || "";
 let playerName = localStorage.getItem("am_player_name") || "";
@@ -51,17 +55,19 @@ function withTimeout(promise, ms = 5000) {
 
 function setupConnection() {
   if (!db) {
-    $("connPill").textContent = "● Mode Luring";
-    $("connPill").style.color = "var(--danger)";
+    const pill = $("connPill");
+    if (pill) { pill.textContent = "● Mode Luring"; pill.style.color = "var(--danger)"; }
     return;
   }
   db.ref(".info/connected").on("value", (snap) => {
+    const pill = $("connPill");
+    if (!pill) return;
     if (snap.val() === true) {
-      $("connPill").textContent = "● Online";
-      $("connPill").style.color = "var(--green)";
+      pill.textContent = "● Online";
+      pill.style.color = "var(--green)";
     } else {
-      $("connPill").textContent = "● Menyambungkan...";
-      $("connPill").style.color = "var(--gold)";
+      pill.textContent = "● Menyambungkan...";
+      pill.style.color = "var(--gold)";
     }
   });
 }
@@ -74,19 +80,22 @@ function initProfile() {
     localStorage.setItem("am_user_id", userId);
   }
   if (playerName) {
-    $("name").value = playerName;
+    const nameInput = $("name");
+    if (nameInput) nameInput.value = playerName;
   }
-  $("loginId").textContent = userId;
+  const loginIdEl = $("loginId");
+  if (loginIdEl) loginIdEl.textContent = userId;
 }
 
 initProfile();
 
 async function ensureProfile() {
   setMessage("setupMessage", "");
-  const nameVal = $("name").value.trim();
+  const nameInput = $("name");
+  const nameVal = nameInput ? nameInput.value.trim() : "";
   if (!nameVal) {
     setMessage("setupMessage", "Masukkan nama pemain terlebih dahulu.");
-    $("name").focus();
+    if (nameInput) nameInput.focus();
     return false;
   }
   playerName = nameVal;
@@ -109,13 +118,14 @@ async function ensureProfile() {
 
 function showScreen(screenId) {
   ["setupScreen", "waitingScreen", "secretScreen", "gameScreen", "resultScreen"].forEach(id => {
-    $(id).classList.add("hidden");
+    safeAdd(id, "hidden");
   });
-  $(screenId).classList.remove("hidden");
+  safeRemove(screenId, "hidden");
 }
 
 function setMessage(id, text) {
-  $(id).textContent = text || "";
+  const el = $(id);
+  if (el) el.textContent = text || "";
 }
 
 function cleanCode(code) {
@@ -157,158 +167,178 @@ function calculateBH(secretStr, guessStr) {
    PENGATURAN MODE
 ========================================================= */
 
-$("mode").addEventListener("change", () => {
-  const m = $("mode").value;
-  $("duelSetting").classList.toggle("hidden", m !== "duel");
-  $("lariSetting").classList.toggle("hidden", m !== "lari");
-  $("roomCode").classList.toggle("hidden", m === "latihan");
-  $("joinBtn").classList.toggle("hidden", m === "latihan");
-});
+const modeSelect = $("mode");
+if (modeSelect) {
+  modeSelect.addEventListener("change", () => {
+    const m = modeSelect.value;
+    safeToggle("duelSetting", "hidden", m !== "duel");
+    safeToggle("lariSetting", "hidden", m !== "lari");
+    safeToggle("roomCode", "hidden", m === "latihan");
+    safeToggle("joinBtn", "hidden", m === "latihan");
+  });
+}
 
 
 /* =========================================================
    BUAT ROOM / LATIHAN
 ========================================================= */
 
-$("createBtn").addEventListener("click", async () => {
-  if (!(await ensureProfile())) return;
+const createBtn = $("createBtn");
+if (createBtn) {
+  createBtn.addEventListener("click", async () => {
+    if (!(await ensureProfile())) return;
 
-  const mode = $("mode").value;
-  const digits = Number($("digits").value);
-  const maxGuesses = Number($("maxGuesses").value);
-  const turnTime = Number($("turnTime").value);
+    const mode = $("mode") ? $("mode").value : "duel";
+    const digits = Number($("digits") ? $("digits").value : 6);
+    const maxGuesses = Number($("maxGuesses") ? $("maxGuesses").value : 20);
+    const turnTime = Number($("turnTime") ? $("turnTime").value : 30);
 
-  // MODE LATIHAN SOLO
-  if (mode === "latihan") {
-    practiceSecret = generateSecret(digits);
-    practiceCount = 0;
-    room = { code: "LATIHAN", mode: "latihan", digits, maxGuesses: 0, turnTime: 0 };
-    secret = "";
-    secretVisible = false;
-    playerNumber = 1;
+    // MODE LATIHAN SOLO
+    if (mode === "latihan") {
+      practiceSecret = generateSecret(digits);
+      practiceCount = 0;
+      room = { code: "LATIHAN", mode: "latihan", digits, maxGuesses: 0, turnTime: 0 };
+      secret = "";
+      secretVisible = false;
+      playerNumber = 1;
 
-    $("scoreboard").classList.add("hidden");
-    $("secretDisplay").parentElement.classList.add("hidden");
-    $("histories").classList.add("practice-history");
-    $("opponentHistory").parentElement.classList.add("hidden");
-    $("gameRoom").textContent = "SOLO";
-    $("gameMode").textContent = "Latihan";
+      safeAdd("scoreboard", "hidden");
+      const secretDisp = $("secretDisplay");
+      if (secretDisp && secretDisp.parentElement) secretDisp.parentElement.classList.add("hidden");
+      safeAdd("histories", "practice-history");
+      const oppHist = $("opponentHistory");
+      if (oppHist && oppHist.parentElement) oppHist.parentElement.classList.add("hidden");
 
-    myHistory = [];
-    opponentHistory = [];
-    renderHistories();
+      const gameRoomEl = $("gameRoom");
+      if (gameRoomEl) gameRoomEl.textContent = "SOLO";
+      const gameModeEl = $("gameMode");
+      if (gameModeEl) gameModeEl.textContent = "Latihan";
 
-    $("turnStatus").textContent = "Latihan solo — silakan menebak";
-    $("timer").textContent = "Tanpa batas waktu";
-    $("guess").placeholder = `Tebak (${digits} digit)`;
-    $("guess").value = "";
-    $("guessBtn").disabled = false;
-    setMessage("guessMessage", "");
-    showScreen("gameScreen");
-    return;
-  }
+      myHistory = [];
+      opponentHistory = [];
+      renderHistories();
 
-  if (!db) {
-    setMessage("setupMessage", "Firebase belum terhubung.");
-    return;
-  }
+      setMessage("turnStatus", "Latihan solo — silakan menebak");
+      setMessage("timer", "Tanpa batas waktu");
+      const guessInput = $("guess");
+      if (guessInput) {
+        guessInput.placeholder = `Tebak (${digits} digit)`;
+        guessInput.value = "";
+      }
+      const guessBtn = $("guessBtn");
+      if (guessBtn) guessBtn.disabled = false;
 
-  let code = cleanCode($("roomCode").value);
-  if (!code) code = makeCode();
+      setMessage("guessMessage", "");
+      showScreen("gameScreen");
+      return;
+    }
 
-  setMessage("setupMessage", "Membuat room...");
+    if (!db) {
+      setMessage("setupMessage", "Firebase belum terhubung.");
+      return;
+    }
 
-  try {
-    const roomRef = db.ref(`rooms/${code}`);
-    await withTimeout(roomRef.set({
-      code,
-      mode,
-      digits,
-      maxGuesses,
-      turnTime,
-      status: "waiting",
-      created_at: Date.now()
-    }), 5000);
+    let code = cleanCode($("roomCode") ? $("roomCode").value : "");
+    if (!code) code = makeCode();
 
-    await withTimeout(roomRef.child("player1").set({
-      id: userId,
-      name: playerName,
-      ready: false
-    }), 5000);
+    setMessage("setupMessage", "Membuat room...");
 
-    playerNumber = 1;
-    room = { code, mode, digits, maxGuesses, turnTime };
-    hasSubmittedSecret = false;
+    try {
+      const roomRef = db.ref(`rooms/${code}`);
+      await withTimeout(roomRef.set({
+        code,
+        mode,
+        digits,
+        maxGuesses,
+        turnTime,
+        status: "waiting",
+        created_at: Date.now()
+      }), 5000);
 
-    $("roomCodeDisplay").textContent = code;
-    setMessage("setupMessage", "");
-    showScreen("waitingScreen");
-    listenToRoom(code);
-  } catch (err) {
-    console.error(err);
-    setMessage("setupMessage", "Gagal membuat room: " + err.message);
-  }
-});
+      await withTimeout(roomRef.child("player1").set({
+        id: userId,
+        name: playerName,
+        ready: false
+      }), 5000);
+
+      playerNumber = 1;
+      room = { code, mode, digits, maxGuesses, turnTime };
+      hasSubmittedSecret = false;
+
+      const roomCodeDisp = $("roomCodeDisplay");
+      if (roomCodeDisp) roomCodeDisp.textContent = code;
+      setMessage("setupMessage", "");
+      showScreen("waitingScreen");
+      listenToRoom(code);
+    } catch (err) {
+      console.error(err);
+      setMessage("setupMessage", "Gagal membuat room: " + err.message);
+    }
+  });
+}
 
 
 /* =========================================================
    MASUK ROOM
 ========================================================= */
 
-$("joinBtn").addEventListener("click", async () => {
-  if (!(await ensureProfile())) return;
+const joinBtn = $("joinBtn");
+if (joinBtn) {
+  joinBtn.addEventListener("click", async () => {
+    if (!(await ensureProfile())) return;
 
-  if (!db) {
-    setMessage("setupMessage", "Firebase belum terhubung.");
-    return;
-  }
-
-  const code = cleanCode($("roomCode").value);
-  if (!code) {
-    setMessage("setupMessage", "Masukkan kode room.");
-    return;
-  }
-
-  setMessage("setupMessage", "Mencari room...");
-
-  try {
-    const roomRef = db.ref(`rooms/${code}`);
-    const snap = await withTimeout(roomRef.once("value"), 5000);
-
-    if (!snap.exists()) {
-      setMessage("setupMessage", "Room tidak ditemukan.");
+    if (!db) {
+      setMessage("setupMessage", "Firebase belum terhubung.");
       return;
     }
 
-    const r = snap.val();
-    if (r.player1?.id === userId) {
-      setMessage("setupMessage", "Tidak bisa masuk ke room sendiri.");
-      return;
-    }
-    if (r.player2 && r.player2.id !== userId) {
-      setMessage("setupMessage", "Room sudah penuh.");
+    const code = cleanCode($("roomCode") ? $("roomCode").value : "");
+    if (!code) {
+      setMessage("setupMessage", "Masukkan kode room.");
       return;
     }
 
-    playerNumber = 2;
-    room = { code: r.code, mode: r.mode, digits: r.digits, maxGuesses: r.maxGuesses, turnTime: r.turnTime };
-    hasSubmittedSecret = false;
+    setMessage("setupMessage", "Mencari room...");
 
-    await withTimeout(roomRef.child("player2").set({
-      id: userId,
-      name: playerName,
-      ready: false
-    }), 5000);
+    try {
+      const roomRef = db.ref(`rooms/${code}`);
+      const snap = await withTimeout(roomRef.once("value"), 5000);
 
-    await withTimeout(roomRef.update({ status: "secret_setup" }), 5000);
+      if (!snap.exists()) {
+        setMessage("setupMessage", "Room tidak ditemukan.");
+        return;
+      }
 
-    setMessage("setupMessage", "");
-    listenToRoom(code);
-  } catch (err) {
-    console.error(err);
-    setMessage("setupMessage", "Gagal masuk room: " + err.message);
-  }
-});
+      const r = snap.val();
+      if (r.player1?.id === userId) {
+        setMessage("setupMessage", "Tidak bisa masuk ke room sendiri.");
+        return;
+      }
+      if (r.player2 && r.player2.id !== userId) {
+        setMessage("setupMessage", "Room sudah penuh.");
+        return;
+      }
+
+      playerNumber = 2;
+      room = { code: r.code, mode: r.mode, digits: r.digits, maxGuesses: r.maxGuesses, turnTime: r.turnTime };
+      hasSubmittedSecret = false;
+
+      await withTimeout(roomRef.child("player2").set({
+        id: userId,
+        name: playerName,
+        ready: false
+      }), 5000);
+
+      await withTimeout(roomRef.update({ status: "secret_setup" }), 5000);
+
+      setMessage("setupMessage", "");
+      listenToRoom(code);
+    } catch (err) {
+      console.error(err);
+      setMessage("setupMessage", "Gagal masuk room: " + err.message);
+    }
+  });
+}
 
 
 /* =========================================================
@@ -364,20 +394,26 @@ function listenToRoom(code) {
     else if (r.status === "secret_setup") {
       const mySecret = r[`player${playerNumber}`]?.secret;
       if (!mySecret && !hasSubmittedSecret) {
-        if ($("secretScreen").classList.contains("hidden")) {
+        const secretScreenEl = $("secretScreen");
+        if (secretScreenEl && secretScreenEl.classList.contains("hidden")) {
           showScreen("secretScreen");
-          $("secret").value = "";
-          $("secret").maxLength = r.digits;
+          const secretInput = $("secret");
+          if (secretInput) {
+            secretInput.value = "";
+            secretInput.maxLength = r.digits;
+          }
           setMessage("secretMessage", `Masukkan angka rahasia ${r.digits} digit.`);
         }
       } else {
-        if (!$("secretScreen").classList.contains("hidden") && hasSubmittedSecret) {
+        const secretScreenEl = $("secretScreen");
+        if (secretScreenEl && !secretScreenEl.classList.contains("hidden") && hasSubmittedSecret) {
           setMessage("secretMessage", "Angka rahasia tersimpan. Menunggu lawan...");
         }
       }
     }
     else if (r.status === "playing") {
-      const inGame = !$("gameScreen").classList.contains("hidden");
+      const gameScreenEl = $("gameScreen");
+      const inGame = gameScreenEl && !gameScreenEl.classList.contains("hidden");
       if (!inGame) {
         startGameSession(r.currentTurn || 1);
       }
@@ -405,79 +441,93 @@ function listenToRoom(code) {
    ANGKA RAHASIA & GAMEPLAY
 ========================================================= */
 
-$("secretBtn").addEventListener("click", async () => {
-  const val = $("secret").value.trim();
-  if (!/^\d+$/.test(val) || val.length !== room.digits) {
-    setMessage("secretMessage", `Harus tepat ${room.digits} digit angka.`);
-    return;
-  }
-  if (!hasUniqueDigits(val)) {
-    setMessage("secretMessage", "Setiap digit harus berbeda.");
-    return;
-  }
-
-  secret = val;
-  hasSubmittedSecret = true;
-
-  if (currentRoomRef) {
-    try {
-      await withTimeout(currentRoomRef.child(`player${playerNumber}`).update({
-        secret: val,
-        ready: true
-      }), 5000);
-      setMessage("secretMessage", "Angka rahasia tersimpan. Menunggu lawan...");
-
-      const snap = await currentRoomRef.once("value");
-      const r = snap.val();
-      if (r && r.player1?.secret && r.player2?.secret) {
-        await currentRoomRef.update({
-          status: "playing",
-          currentTurn: 1,
-          turnDeadline: Date.now() + (r.turnTime || 30) * 1000
-        });
-      }
-    } catch (err) {
-      setMessage("secretMessage", "Gagal menyimpan: " + err.message);
+const secretBtn = $("secretBtn");
+if (secretBtn) {
+  secretBtn.addEventListener("click", async () => {
+    const secretInput = $("secret");
+    const val = secretInput ? secretInput.value.trim() : "";
+    if (!/^\d+$/.test(val) || val.length !== room.digits) {
+      setMessage("secretMessage", `Harus tepat ${room.digits} digit angka.`);
+      return;
     }
-  }
-});
-
-$("forceStartBtn").addEventListener("click", async () => {
-  if (currentRoomRef) {
-    try {
-      const snap = await currentRoomRef.once("value");
-      const r = snap.val();
-      if (r && r.player1?.secret && r.player2?.secret) {
-        await currentRoomRef.update({
-          status: "playing",
-          currentTurn: 1,
-          turnDeadline: Date.now() + (r.turnTime || 30) * 1000
-        });
-        startGameSession(1);
-      } else {
-        setMessage("secretMessage", "Menunggu lawan menyimpan angka rahasia...");
-      }
-    } catch (err) {
-      setMessage("secretMessage", "Gagal masuk game: " + err.message);
+    if (!hasUniqueDigits(val)) {
+      setMessage("secretMessage", "Setiap digit harus berbeda.");
+      return;
     }
-  }
-});
+
+    secret = val;
+    hasSubmittedSecret = true;
+
+    if (currentRoomRef) {
+      try {
+        await withTimeout(currentRoomRef.child(`player${playerNumber}`).update({
+          secret: val,
+          ready: true
+        }), 5000);
+        setMessage("secretMessage", "Angka rahasia tersimpan. Menunggu lawan...");
+
+        const snap = await currentRoomRef.once("value");
+        const r = snap.val();
+        if (r && r.player1?.secret && r.player2?.secret) {
+          await currentRoomRef.update({
+            status: "playing",
+            currentTurn: 1,
+            turnDeadline: Date.now() + (r.turnTime || 30) * 1000
+          });
+        }
+      } catch (err) {
+        setMessage("secretMessage", "Gagal menyimpan: " + err.message);
+      }
+    }
+  });
+}
+
+const forceStartBtn = $("forceStartBtn");
+if (forceStartBtn) {
+  forceStartBtn.addEventListener("click", async () => {
+    if (currentRoomRef) {
+      try {
+        const snap = await currentRoomRef.once("value");
+        const r = snap.val();
+        if (r && r.player1?.secret && r.player2?.secret) {
+          await currentRoomRef.update({
+            status: "playing",
+            currentTurn: 1,
+            turnDeadline: Date.now() + (r.turnTime || 30) * 1000
+          });
+          startGameSession(1);
+        } else {
+          setMessage("secretMessage", "Menunggu lawan menyimpan angka rahasia...");
+        }
+      } catch (err) {
+        setMessage("secretMessage", "Gagal masuk game: " + err.message);
+      }
+    }
+  });
+}
 
 function startGameSession(turn) {
-  $("scoreboard").classList.remove("hidden");
-  $("secretDisplay").parentElement.classList.remove("hidden");
-  $("histories").classList.remove("practice-history");
-  $("opponentHistory").parentElement.classList.remove("hidden");
-  $("guess").placeholder = `Tebak (${room.digits} digit)`;
+  safeRemove("scoreboard", "hidden");
+  const secretDisp = $("secretDisplay");
+  if (secretDisp && secretDisp.parentElement) secretDisp.parentElement.classList.remove("hidden");
+  safeRemove("histories", "practice-history");
+  const oppHist = $("opponentHistory");
+  if (oppHist && oppHist.parentElement) oppHist.parentElement.classList.remove("hidden");
+
+  const guessInput = $("guess");
+  if (guessInput) guessInput.placeholder = `Tebak (${room.digits} digit)`;
 
   myHistory = [];
   opponentHistory = [];
   renderHistories();
 
-  $("gameRoom").textContent = room.code;
-  $("gameMode").textContent = room.mode === "duel" ? "Duel" : "Lari";
-  $("secretDisplay").textContent = secretVisible ? secret : "•".repeat(room.digits);
-  $("guess").value = "";
+  const gameRoomEl = $("gameRoom");
+  if (gameRoomEl) gameRoomEl.textContent = room.code;
+  const gameModeEl = $("gameMode");
+  if (gameModeEl) gameModeEl.textContent = room.mode === "duel" ? "Duel" : "Lari";
+
+  if (secretDisp) secretDisp.textContent = secretVisible ? secret : "•".repeat(room.digits);
+  if (guessInput) guessInput.value = "";
   setMessage("guessMessage", "");
 
   showScreen("gameScreen");
@@ -486,19 +536,22 @@ function startGameSession(turn) {
 
 function updateTurnDisplay(turn, seconds, endsAt) {
   if (room.mode === "lari") {
-    $("turnStatus").textContent = "⚡ Silakan menebak!";
-    $("guessBtn").disabled = false;
+    setMessage("turnStatus", "⚡ Silakan menebak!");
+    const guessBtn = $("guessBtn");
+    if (guessBtn) guessBtn.disabled = false;
     stopTimer();
-    $("timer").textContent = "Bebas";
+    setMessage("timer", "Bebas");
     return;
   }
 
   if (turn === playerNumber) {
-    $("turnStatus").textContent = "🎯 Giliran Anda";
-    $("guessBtn").disabled = false;
+    setMessage("turnStatus", "🎯 Giliran Anda");
+    const guessBtn = $("guessBtn");
+    if (guessBtn) guessBtn.disabled = false;
   } else {
-    $("turnStatus").textContent = "⏳ Giliran Lawan";
-    $("guessBtn").disabled = true;
+    setMessage("turnStatus", "⏳ Giliran Lawan");
+    const guessBtn = $("guessBtn");
+    if (guessBtn) guessBtn.disabled = true;
   }
 
   currentTurnEndsAt = endsAt ? Number(endsAt) : (Date.now() + Number(seconds || room.turnTime) * 1000);
@@ -509,7 +562,7 @@ function startTimer(endsAt) {
   stopTimer();
   function tick() {
     const rem = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
-    $("timer").textContent = `${rem} dtk`;
+    setMessage("timer", `${rem} dtk`);
     if (rem <= 0) stopTimer();
   }
   tick();
@@ -528,66 +581,71 @@ function stopTimer() {
    TEBAKAN
 ========================================================= */
 
-$("guessForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  if (isProcessingGuess) return;
+const guessForm = $("guessForm");
+if (guessForm) {
+  guessForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (isProcessingGuess) return;
 
-  const val = $("guess").value.trim();
-  if (!/^\d+$/.test(val) || val.length !== room.digits || !hasUniqueDigits(val)) {
-    setMessage("guessMessage", `Masukkan ${room.digits} digit unik.`);
-    return;
-  }
-
-  if (room.mode === "latihan") {
-    practiceCount++;
-    const res = calculateBH(practiceSecret, val);
-    addHistoryItem("my", val, res.betul, res.hampir, practiceCount);
-    $("guess").value = "";
-    if (res.betul === room.digits) {
-      setMessage("guessMessage", "🎉 Benar! Anda menang.");
-      $("guessBtn").disabled = true;
-      $("turnStatus").textContent = "Selesai!";
-    } else {
-      setMessage("guessMessage", "Coba lagi!");
+    const guessInput = $("guess");
+    const val = guessInput ? guessInput.value.trim() : "";
+    if (!/^\d+$/.test(val) || val.length !== room.digits || !hasUniqueDigits(val)) {
+      setMessage("guessMessage", `Masukkan ${room.digits} digit unik.`);
+      return;
     }
-    return;
-  }
 
-  if (!currentRoomRef || !currentRoomData) return;
-  const oppNum = playerNumber === 1 ? 2 : 1;
-  const oppSecret = currentRoomData[`player${oppNum}`]?.secret;
-  if (!oppSecret) {
-    setMessage("guessMessage", "Menunggu rahasia lawan...");
-    return;
-  }
-
-  isProcessingGuess = true;
-  try {
-    const res = calculateBH(oppSecret, val);
-    const count = myHistory.length + 1;
-    await currentRoomRef.child(`guesses/player${playerNumber}`).push({
-      guess: val,
-      betul: res.betul,
-      hampir: res.hampir,
-      count,
-      timestamp: Date.now()
-    });
-
-    $("guess").value = "";
-    setMessage("guessMessage", "");
-
-    if (res.betul === room.digits) {
-      await finishMatch(playerNumber);
-    } else if (room.mode === "duel") {
-      const nextT = playerNumber === 1 ? 2 : 1;
-      await currentRoomRef.update({ currentTurn: nextT, turnDeadline: Date.now() + room.turnTime * 1000 });
+    if (room.mode === "latihan") {
+      practiceCount++;
+      const res = calculateBH(practiceSecret, val);
+      addHistoryItem("my", val, res.betul, res.hampir, practiceCount);
+      if (guessInput) guessInput.value = "";
+      if (res.betul === room.digits) {
+        setMessage("guessMessage", "🎉 Benar! Anda menang.");
+        const guessBtn = $("guessBtn");
+        if (guessBtn) guessBtn.disabled = true;
+        setMessage("turnStatus", "Selesai!");
+      } else {
+        setMessage("guessMessage", "Coba lagi!");
+      }
+      return;
     }
-  } catch (err) {
-    setMessage("guessMessage", "Gagal kirim tebakan.");
-  } finally {
-    isProcessingGuess = false;
-  }
-});
+
+    if (!currentRoomRef || !currentRoomData) return;
+    const oppNum = playerNumber === 1 ? 2 : 1;
+    const oppSecret = currentRoomData[`player${oppNum}`]?.secret;
+    if (!oppSecret) {
+      setMessage("guessMessage", "Menunggu rahasia lawan...");
+      return;
+    }
+
+    isProcessingGuess = true;
+    try {
+      const res = calculateBH(oppSecret, val);
+      const count = myHistory.length + 1;
+      await currentRoomRef.child(`guesses/player${playerNumber}`).push({
+        guess: val,
+        betul: res.betul,
+        hampir: res.hampir,
+        count,
+        timestamp: Date.now()
+      });
+
+      if (guessInput) guessInput.value = "";
+      setMessage("guessMessage", "");
+
+      if (res.betul === room.digits) {
+        await finishMatch(playerNumber);
+      } else if (room.mode === "duel") {
+        const nextT = playerNumber === 1 ? 2 : 1;
+        await currentRoomRef.update({ currentTurn: nextT, turnDeadline: Date.now() + room.turnTime * 1000 });
+      }
+    } catch (err) {
+      setMessage("guessMessage", "Gagal kirim tebakan.");
+    } finally {
+      isProcessingGuess = false;
+    }
+  });
+}
 
 function processGuesses(guessesObj = {}) {
   const p1 = Object.values(guessesObj.player1 || {}).sort((a,b) => (b.timestamp||0)-(a.timestamp||0));
@@ -605,8 +663,10 @@ function addHistoryItem(type, guess, betul, hampir, count) {
 }
 
 function renderHistories() {
-  $("myHistory").innerHTML = renderList(myHistory);
-  $("opponentHistory").innerHTML = renderList(opponentHistory);
+  const myHistEl = $("myHistory");
+  const oppHistEl = $("opponentHistory");
+  if (myHistEl) myHistEl.innerHTML = renderList(myHistory);
+  if (oppHistEl) oppHistEl.innerHTML = renderList(opponentHistory);
 }
 
 function renderList(list) {
@@ -656,37 +716,55 @@ async function finishMatch(winnerNum) {
 }
 
 function updatePlayersMeta(p1Name, p1Pts, p2Name, p2Pts) {
-  $("player1Name").textContent = p1Name || "Pemain A";
-  $("player2Name").textContent = p2Name || "Menunggu...";
-  $("player1Points").textContent = p1Pts;
-  $("player2Points").textContent = p2Pts;
-  $("playerCard1").classList.toggle("active", playerNumber === 1);
-  $("playerCard2").classList.toggle("active", playerNumber === 2);
+  const p1NameEl = $("player1Name");
+  const p2NameEl = $("player2Name");
+  const p1PtsEl = $("player1Points");
+  const p2PtsEl = $("player2Points");
+
+  if (p1NameEl) p1NameEl.textContent = p1Name || "Pemain A";
+  if (p2NameEl) p2NameEl.textContent = p2Name || "Menunggu...";
+  if (p1PtsEl) p1PtsEl.textContent = p1Pts;
+  if (p2PtsEl) p2PtsEl.textContent = p2Pts;
+
+  safeToggle("playerCard1", "active", playerNumber === 1);
+  safeToggle("playerCard2", "active", playerNumber === 2);
 }
 
 function showResultScreen(winner, r) {
   stopTimer();
   showScreen("resultScreen");
   const p1N = r.player1?.name || "Pemain A";
-  const p2N = r.player2?.name || "Pemain B";
-  $("resultPlayer1Label").textContent = p1N;
-  $("resultPlayer2Label").textContent = p2N;
-  $("resultSecret1").textContent = r.secrets?.player1 || "-";
-  $("resultSecret2").textContent = r.secrets?.player2 || "-";
+  const p2N = r.player2?.name || "Peran B";
+  const resP1 = $("resultPlayer1Label");
+  const resP2 = $("resultPlayer2Label");
+  const resSec1 = $("resultSecret1");
+  const resSec2 = $("resultSecret2");
+  const resLine = $("resultScoreline");
 
-  $("resultScoreline").innerHTML = `
-    <div><span>${p1N}</span><strong>${r.winner === 1 ? "Menang" : "Kalah"}</strong></div>
-    <div><span>${p2N}</span><strong>${r.winner === 2 ? "Menang" : "Kalah"}</strong></div>
-  `;
+  if (resP1) resP1.textContent = p1N;
+  if (resP2) resP2.textContent = p2N;
+  if (resSec1) resSec1.textContent = r.secrets?.player1 || "-";
+  if (resSec2) resSec2.textContent = r.secrets?.player2 || "-";
+
+  if (resLine) {
+    resLine.innerHTML = `
+      <div><span>${p1N}</span><strong>${r.winner === 1 ? "Menang" : "Kalah"}</strong></div>
+      <div><span>${p2N}</span><strong>${r.winner === 2 ? "Menang" : "Kalah"}</strong></div>
+    `;
+  }
+
+  const resIcon = $("resultIcon");
+  const resTitle = $("resultTitle");
+  const resMsg = $("resultMessage");
 
   if (winner === playerNumber) {
-    $("resultIcon").textContent = "🏆";
-    $("resultTitle").textContent = "Anda Menang!";
-    $("resultMessage").textContent = "Hebat! Tebakanmu lebih akurat.";
+    if (resIcon) resIcon.textContent = "🏆";
+    if (resTitle) resTitle.textContent = "Anda Menang!";
+    if (resMsg) resMsg.textContent = "Hebat! Tebakanmu lebih akurat.";
   } else {
-    $("resultIcon").textContent = "😿";
-    $("resultTitle").textContent = "Anda Kalah";
-    $("resultMessage").textContent = "Lawan lebih dulu menebak angka rahasiamu.";
+    if (resIcon) resIcon.textContent = "😿";
+    if (resTitle) resTitle.textContent = "Anda Kalah";
+    if (resMsg) resMsg.textContent = "Lawan lebih dulu menebak angka rahasiamu.";
   }
 }
 
@@ -695,15 +773,24 @@ function showResultScreen(winner, r) {
    TOMBOL KELUAR / RESET
 ========================================================= */
 
-$("showSecretBtn").addEventListener("click", () => {
-  secretVisible = !secretVisible;
-  $("secretDisplay").textContent = secretVisible ? secret : "•".repeat(room.digits);
-  $("showSecretBtn").textContent = secretVisible ? "Sembunyikan" : "Tampilkan";
-});
+const showSecBtn = $("showSecretBtn");
+if (showSecBtn) {
+  showSecBtn.addEventListener("click", () => {
+    secretVisible = !secretVisible;
+    const secDisp = $("secretDisplay");
+    if (secDisp) secDisp.textContent = secretVisible ? secret : "•".repeat(room.digits);
+    showSecBtn.textContent = secretVisible ? "Sembunyikan" : "Tampilkan";
+  });
+}
 
-$("leaveBtn").addEventListener("click", resetApp);
-$("backBtn").addEventListener("click", resetApp);
-$("cancelBtn").addEventListener("click", resetApp);
+const leaveBtn = $("leaveBtn");
+if (leaveBtn) leaveBtn.addEventListener("click", resetApp);
+
+const backBtn = $("backBtn");
+if (backBtn) backBtn.addEventListener("click", resetApp);
+
+const cancelBtn = $("cancelBtn");
+if (cancelBtn) cancelBtn.addEventListener("click", resetApp);
 
 function resetApp() {
   detachRoomListener();
@@ -715,9 +802,20 @@ function resetApp() {
   hasSubmittedSecret = false;
   myHistory = [];
   opponentHistory = [];
-  $("roomCode").value = "";
-  $("secret").value = "";
-  $("guess").value = "";
+  const roomCodeInput = $("roomCode");
+  const secretInput = $("secret");
+  const guessInput = $("guess");
+  const secretDisp = $("secretDisplay");
+  if (roomCodeInput) roomCodeInput.value = "";
+  if (secretInput) secretInput.value = "";
+  if (guessInput) guessInput.value = "";
+  if (secretDisp) secretDisp.textContent = "••••••";
+  if (showSecBtn) showSecBtn.textContent = "Tampilkan";
+
+  renderHistories();
+  setMessage("setupMessage", "");
+  setMessage("secretMessage", "");
+  setMessage("guessMessage", "");
   showScreen("setupScreen");
 }
 
