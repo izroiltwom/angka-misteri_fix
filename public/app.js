@@ -246,7 +246,7 @@ if (createBtn) {
     try {
       const roomRef = db.ref(`rooms/${code}`);
 
-      // MODE LAWAN & KAWAN (Server Generate Secret Otomatis)
+      // MODE LAWAN & KAWAN (Menunggu lawan dulu, server generate secret otomatis saat mulai)
       if (mode === "lawan" || mode === "kawan") {
         const sharedSecret = generateSecret(digits);
         await withTimeout(roomRef.set({
@@ -255,10 +255,8 @@ if (createBtn) {
           digits,
           maxGuesses,
           turnTime,
-          status: "playing",
+          status: "waiting",
           sharedSecret,
-          currentTurn: 1,
-          turnDeadline: Date.now() + turnTime * 1000,
           created_at: Date.now()
         }), 5000);
 
@@ -270,7 +268,10 @@ if (createBtn) {
 
         playerNumber = 1;
         room = { code, mode, digits, maxGuesses, turnTime };
+        const roomCodeDisp = $("roomCodeDisplay");
+        if (roomCodeDisp) roomCodeDisp.textContent = code;
         setMessage("setupMessage", "");
+        showScreen("waitingScreen");
         listenToRoom(code);
         return;
       }
@@ -360,6 +361,13 @@ if (joinBtn) {
           name: playerName,
           ready: true
         }), 5000);
+
+        await withTimeout(roomRef.update({
+          status: "playing",
+          currentTurn: 1,
+          turnDeadline: Date.now() + (r.turnTime || 30) * 1000
+        }), 5000);
+
         setMessage("setupMessage", "");
         listenToRoom(code);
         return;
@@ -573,7 +581,7 @@ function startGameSession(turn) {
     else gameModeEl.textContent = "Lari";
   }
 
-  // Label kustom untuk mode Kawan
+  // Label kustom untuk mode Kawan & Lawan
   const yourHeader = document.querySelector(".history-box.yours h3 span");
   const theirHeader = document.querySelector(".history-box.theirs h3 span");
   if (room.mode === "kawan") {
@@ -908,7 +916,7 @@ function resetApp() {
   if (showSecBtn) showSecBtn.textContent = "Tampilkan";
 
   renderHistories();
-  setMessage("setupMessage", "");
+  setMessage("setupMessage", "", "");
   setMessage("secretMessage", "");
   setMessage("guessMessage", "");
   showScreen("setupScreen");
