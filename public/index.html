@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Angka Misteri — Logika dan Keberuntungan</title>
+  <meta name="theme-color" content="#050817">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+<main class="app-shell">
+  <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
+  <div class="card">
+    <header class="brand-row">
+      <div class="brand-side logic"><span class="brand-icon">🧠</span><span>LOGIKA</span></div>
+      <div class="brand-title"><span class="eyebrow">GAME TEBAK ANGKA</span><h1><span>Angka</span> Misteri</h1><p>Logika & Keberuntungan</p></div>
+      <div class="brand-side luck"><span class="brand-icon">🍀</span><span>KEBERUNTUNGAN</span></div>
+    </header>
+
+    <!-- SETUP SCREEN -->
+    <section id="setupScreen" class="screen">
+      <div class="hero-copy"><span class="live-pill" id="connPill">● Menghubungkan...</span><span class="eyebrow">LOBBY UTAMA</span><h2>Mulai Pertandingan</h2><p>Pilih mode, atur digit, dan tantang lawanmu.</p></div>
+      <div class="profile-card">
+        <div class="avatar">✦</div>
+        <div class="profile-info"><small>ID PEMAIN</small><strong id="loginId">—</strong><span id="profileHint">ID unik perangkat ini.</span></div>
+        <div class="profile-status">AKTIF</div>
+      </div>
+      <div class="form-card">
+        <label for="name">Nama Pemain</label>
+        <input id="name" type="text" maxlength="20" placeholder="Contoh: Budi">
+        <div class="form-two">
+          <div><label for="mode">Mode Permainan</label><select id="mode"><option value="duel">Duel (Bergiliran)</option><option value="lari">Lari (Cepat-cepatan)</option><option value="latihan">Latihan Solo</option></select></div>
+          <div><label for="digits">Jumlah Digit</label><select id="digits"><option value="3">3 Digit</option><option value="4">4 Digit</option><option value="5">5 Digit</option><option value="6" selected>6 Digit</option><option value="7">7 Digit</option><option value="8">8 Digit</option></select></div>
+        </div>
+        <div id="duelSetting"><label for="turnTime">Waktu Per Giliran</label><select id="turnTime"><option value="15">15 detik</option><option value="30" selected>30 detik</option><option value="60">60 detik</option><option value="90">90 detik</option></select></div>
+        <div id="lariSetting" class="hidden"><label for="maxGuesses">Maksimal Tebakan</label><select id="maxGuesses"><option value="20">20 Tebakan</option><option value="30" selected>30 Tebakan</option></select></div>
+        <label for="roomCode">Kode Room <span class="optional-label">• kosongkan untuk buat baru</span></label>
+        <input id="roomCode" type="text" maxlength="8" placeholder="Contoh: ROOM123 atau kosongkan">
+        <div class="buttons">
+          <button id="createBtn" class="primary-btn">✦ Buat Room Baru</button>
+          <button id="joinBtn" class="secondary-btn">↗ Masuk Room</button>
+        </div>
+        <p id="setupMessage" class="message"></p>
+      </div>
+    </section>
+
+    <!-- WAITING SCREEN -->
+    <section id="waitingScreen" class="screen hidden">
+      <div class="center-card">
+        <span class="eyebrow">MENUNGGU PEMAIN</span>
+        <h2>Room Siap</h2>
+        <p>Bagikan kode ini ke lawanmu agar bisa bergabung.</p>
+        <div class="room-box"><span>KODE ROOM</span><strong id="roomCodeDisplay">----</strong></div>
+        <p id="waitingMessage">Menunggu pemain kedua bergabung...</p>
+        <button id="cancelBtn" class="secondary-btn">← Batalkan Room</button>
+      </div>
+    </section>
+
+    <!-- SECRET SCREEN -->
+    <section id="secretScreen" class="screen hidden">
+      <div class="center-card">
+        <span class="eyebrow">LANGKAH PERTAMA</span>
+        <h2>Buat Angka Rahasia</h2>
+        <p id="secretHint">Masukkan angka rahasia yang harus ditebak lawan.</p>
+        <input id="secret" type="password" inputmode="numeric" maxlength="10" placeholder="Angka rahasia">
+        <button id="secretBtn" class="primary-btn full-btn">Simpan Angka Rahasia →</button>
+        <p id="secretMessage" class="message"></p>
+      </div>
+    </section>
+
+    <!-- GAME SCREEN -->
+    <section id="gameScreen" class="screen hidden">
+      <div class="game-header">
+        <div><span class="eyebrow">SEDANG BERTANDING</span><h2 id="gameTitle">Angka Misteri</h2></div>
+        <div class="room-chip"><span>ROOM</span><strong id="gameRoom">----</strong><span id="gameMode">Duel</span></div>
+      </div>
+      <div class="scoreboard" id="scoreboard">
+        <div class="player-card" id="playerCard1"><span class="player-badge">🧠</span><div class="player-meta"><small>LOGIKA</small><strong id="player1Name">Pemain A</strong></div><div class="player-score"><small>POIN</small><strong id="player1Points">0</strong></div></div>
+        <div class="vs">VS</div>
+        <div class="player-card" id="playerCard2"><span class="player-badge luck-badge">🍀</span><div class="player-meta"><small>KEBERUNTUNGAN</small><strong id="player2Name">Pemain B</strong></div><div class="player-score"><small>POIN</small><strong id="player2Points">0</strong></div></div>
+      </div>
+      <div class="status-box">
+        <div><small>STATUS</small><strong id="turnStatus">Menunggu giliran...</strong></div>
+        <div class="timer-wrap"><small>WAKTU</small><strong id="timer">-</strong></div>
+      </div>
+      <div class="secret-display">
+        <span>Angka Rahasia Anda</span><strong id="secretDisplay">••••••</strong><button id="showSecretBtn">Tampilkan</button>
+      </div>
+      <form id="guessForm">
+        <input id="guess" type="text" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="Tebak angka lawan">
+        <button id="guessBtn" type="submit">🎯 Tebak</button>
+      </form>
+      <p id="guessMessage" class="message"></p>
+      <div class="history-heading">
+        <div><span class="eyebrow">RIWAYAT</span><h3>20 tebakan terakhir</h3></div>
+        <span class="history-limit">BERDAMPINGAN</span>
+      </div>
+      <div class="histories">
+        <div class="history-box yours"><h3><span>🧠 Tebakan Anda</span><em>Anda</em></h3><div id="myHistory"></div></div>
+        <div class="history-box theirs"><h3><span>🍀 Tebakan Lawan</span><em>Lawan</em></h3><div id="opponentHistory"></div></div>
+      </div>
+      <button id="leaveBtn" class="secondary-btn leave-btn">↪ Keluar Room</button>
+    </section>
+
+    <!-- RESULT SCREEN -->
+    <section id="resultScreen" class="screen hidden">
+      <div class="center-card result-card">
+        <div class="result-icon" id="resultIcon">🏆</div>
+        <span class="eyebrow">HASIL PERTANDINGAN</span>
+        <h2 id="resultTitle">Permainan Selesai</h2>
+        <p id="resultMessage"></p>
+        <div class="result-secrets">
+          <div class="result-secret-card"><span id="resultPlayer1Label">Pemain A</span><strong id="resultSecret1">------</strong></div>
+          <div class="result-secret-card"><span id="resultPlayer2Label">Pemain B</span><strong id="resultSecret2">------</strong></div>
+        </div>
+        <div class="result-scoreline" id="resultScoreline"></div>
+        <button id="backBtn" class="primary-btn full-btn">Kembali ke Lobby Utama</button>
+      </div>
+    </section>
+  </div>
+</main>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
