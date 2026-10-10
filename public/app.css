@@ -4,8 +4,45 @@
 .histories.practice-history { display: flex; justify-content: center; }
 .histories.practice-history .history-box { width: min(100%, 520px); }
 
-/* --- UI Font Enhancements: History 2x Larger --- */
-.history-row { min-height: 56px !important; padding: 10px 14px !important; margin-bottom: 8px !important; }
-.history-number b { min-width: 36px !important; font-size: 18px !important; color: #54cfff !important; }
-.history-number span { font-size: 24px !important; font-weight: 900 !important; letter-spacing: 0.08em !important; }
-.history-row strong { font-size: 20px !important; font-weight: 900 !important; color: #b7c6dc !important; }
+/* --- UI History Font & Layout Optimization --- */
+.history-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-height: 54px !important;
+  padding: 8px 12px !important;
+  margin-bottom: 6px !important;
+  background: rgba(20,32,62,.85) !important;
+  border: 1px solid rgba(126,160,255,.12) !important;
+  border-radius: 11px !important;
+}
+
+.history-number {
+  display: inline-flex !important;
+  align-items: baseline !important;
+  gap: 6px !important; /* Jarak antara #1 dan tebakan dibuat dekat */
+  min-width: 0 !important;
+}
+
+.history-number b {
+  color: #54cfff !important;
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  flex-shrink: 0 !important;
+}
+
+.history-number span {
+  font-size: clamp(16px, 4.5vw, 24px) !important; /* Menyesuaikan lebar kolom secara responsif & tetap besar */
+  font-weight: 900 !important;
+  letter-spacing: 0.08em !important;
+  color: #fff !important;
+}
+
+.history-row strong {
+  font-size: clamp(14px, 3.5vw, 18px) !important;
+  font-weight: 800 !important;
+  color: #38e6a5 !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
