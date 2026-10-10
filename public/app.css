@@ -3,3 +3,9 @@
 /* Mode Latihan: histori tunggal terpusat */
 .histories.practice-history { display: flex; justify-content: center; }
 .histories.practice-history .history-box { width: min(100%, 520px); }
+
+/* --- UI Font Enhancements: History 2x Larger --- */
+.history-row { min-height: 56px !important; padding: 10px 14px !important; margin-bottom: 8px !important; }
+.history-number b { min-width: 36px !important; font-size: 18px !important; color: #54cfff !important; }
+.history-number span { font-size: 24px !important; font-weight: 900 !important; letter-spacing: 0.08em !important; }
+.history-row strong { font-size: 20px !important; font-weight: 900 !important; color: #b7c6dc !important; }

@@ -648,15 +648,18 @@ if (guessForm) {
 }
 
 function processGuesses(guessesObj = {}) {
-  const p1 = Object.values(guessesObj.player1 || {}).sort((a,b) => (b.timestamp||0)-(a.timestamp||0));
-  const p2 = Object.values(guessesObj.player2 || {}).sort((a,b) => (b.timestamp||0)-(a.timestamp||0));
-  myHistory = (playerNumber === 1 ? p1 : p2).slice(0, 20);
-  opponentHistory = (playerNumber === 1 ? p2 : p1).slice(0, 20);
+  const p1 = Object.values(guessesObj.player1 || {}).sort((a,b) => (a.timestamp||0)-(b.timestamp||0));
+  const p2 = Object.values(guessesObj.player2 || {}).sort((a,b) => (a.timestamp||0)-(b.timestamp||0));
+
+  const mapWithSeq = (arr) => arr.map((item, idx) => ({ ...item, seq: idx + 1 })).reverse().slice(0, 20);
+
+  myHistory = mapWithSeq(playerNumber === 1 ? p1 : p2);
+  opponentHistory = mapWithSeq(playerNumber === 1 ? p2 : p1);
   renderHistories();
 }
 
 function addHistoryItem(type, guess, betul, hampir, count) {
-  const item = { guess, number: count, betul, hampir };
+  const item = { guess, seq: count, betul, hampir };
   if (type === "my") { myHistory.unshift(item); myHistory = myHistory.slice(0, 20); }
   else { opponentHistory.unshift(item); opponentHistory = opponentHistory.slice(0, 20); }
   renderHistories();
@@ -673,7 +676,7 @@ function renderList(list) {
   if (!list.length) return `<div class="empty-history">Belum ada tebakan</div>`;
   return list.map(i => `
     <div class="history-row">
-      <span class="history-number"><b>#${i.number}</b><span>${i.guess}</span></span>
+      <span class="history-number"><b>#${i.seq || 1}</b><span>${i.guess}</span></span>
       <strong>${i.betul}B ${i.hampir}H</strong>
     </div>
   `).join("");
