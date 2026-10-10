@@ -4,43 +4,52 @@
 .histories.practice-history { display: flex; justify-content: center; }
 .histories.practice-history .history-box { width: min(100%, 520px); }
 
-/* --- UI History Font & Layout Optimization --- */
+/* --- Flat Compact History List (No Bubbles, Auto Expand Downward) --- */
+.history-box > div {
+  height: auto !important;
+  max-height: none !important;
+  overflow-y: visible !important;
+  padding: 4px 0 !important;
+}
+
 .history-row {
   display: flex !important;
   justify-content: space-between !important;
   align-items: center !important;
   gap: 8px !important;
-  min-height: 54px !important;
-  padding: 8px 12px !important;
-  margin-bottom: 6px !important;
-  background: rgba(20,32,62,.85) !important;
-  border: 1px solid rgba(126,160,255,.12) !important;
-  border-radius: 11px !important;
+  min-height: 40px !important;
+  margin-bottom: 0 !important;
+  padding: 6px 4px !important;
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid rgba(126,160,255,.12) !important;
+  border-radius: 0 !important;
 }
 
 .history-number {
   display: inline-flex !important;
   align-items: baseline !important;
-  gap: 6px !important; /* Jarak antara #1 dan tebakan dibuat dekat */
+  gap: 6px !important;
   min-width: 0 !important;
 }
 
 .history-number b {
   color: #54cfff !important;
-  font-size: 16px !important;
+  font-size: 14px !important;
   font-weight: 800 !important;
   flex-shrink: 0 !important;
 }
 
 .history-number span {
-  font-size: clamp(16px, 4.5vw, 24px) !important; /* Menyesuaikan lebar kolom secara responsif & tetap besar */
+  font-size: clamp(15px, 4vw, 22px) !important;
   font-weight: 900 !important;
   letter-spacing: 0.08em !important;
   color: #fff !important;
+  white-space: nowrap !important;
 }
 
 .history-row strong {
-  font-size: clamp(14px, 3.5vw, 18px) !important;
+  font-size: clamp(13px, 3.2vw, 17px) !important;
   font-weight: 800 !important;
   color: #38e6a5 !important;
   white-space: nowrap !important;
