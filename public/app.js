@@ -220,6 +220,9 @@ async function loadActiveMatches() {
       }
     }
 
+    // Urutkan pertandingan paling baru di atas
+    active.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+
     if (!active.length) {
       container.innerHTML = '<p class="field-hint">Belum ada pertandingan aktif saat ini.</p>';
       return;
