@@ -1,5 +1,5 @@
 // =========================================================
-// ANGKA MISTERI — REFACTORED CLEAN ENGINE (FIREBASE RTDB)
+// ANGKA MISTERI v1.0.3 — REFACTORED CLEAN ENGINE (FIREBASE RTDB)
 // =========================================================
 
 const $ = (id) => document.getElementById(id);
@@ -180,6 +180,109 @@ if (modeSelect) {
 
 
 /* =========================================================
+   PENCARIAN LAWAN OTOMATIS (MATCHMAKING)
+========================================================= */
+
+const matchmakeBtn = $("matchmakeBtn");
+if (matchmakeBtn) {
+  matchmakeBtn.addEventListener("click", async () => {
+    if (!(await ensureProfile())) return;
+
+    if (!db) {
+      setMessage("setupMessage", "Firebase belum terhubung.");
+      return;
+    }
+
+    const mode = $("mode") ? $("mode").value : "duel";
+    const digits = Number($("digits") ? $("digits").value : 6);
+    const maxGuesses = Number($("maxGuesses") ? $("maxGuesses").value : 20);
+    const turnTime = Number($("turnTime") ? $("turnTime").value : 30);
+
+    setMessage("setupMessage", "🔍 Mencari lawan otomatis...");
+
+    try {
+      const roomsSnap = await withTimeout(db.ref("rooms").once("value"), 5000);
+      const allRooms = roomsSnap.val() || {};
+
+      let matchedCode = null;
+      for (const [c, r] of Object.entries(allRooms)) {
+        if (
+          r &&
+          r.status === "waiting" &&
+          r.mode === mode &&
+          Number(r.digits) === digits &&
+          Number(r.turnTime || 30) === turnTime &&
+          Number(r.maxGuesses || 20) === maxGuesses &&
+          r.player1 &&
+          r.player1.id !== userId
+        ) {
+          matchedCode = c;
+          break;
+        }
+      }
+
+      if (matchedCode) {
+        // Auto Join!
+        setMessage("setupMessage", `Lawan ditemukan! Menghubungkan ke room ${matchedCode}...`);
+        const roomRef = db.ref(`rooms/${matchedCode}`);
+        const r = allRooms[matchedCode];
+
+        playerNumber = 2;
+        room = { code: matchedCode, mode: r.mode, digits: r.digits, maxGuesses: r.maxGuesses, turnTime: r.turnTime };
+        hasSubmittedSecret = false;
+
+        if (r.mode === "lawan" || r.mode === "kawan") {
+          await withTimeout(roomRef.child("player2").set({ id: userId, name: playerName, ready: true }), 5000);
+          await withTimeout(roomRef.update({ status: "playing", currentTurn: 1, turnDeadline: Date.now() + (r.turnTime || 30) * 1000 }), 5000);
+        } else {
+          await withTimeout(roomRef.child("player2").set({ id: userId, name: playerName, ready: false }), 5000);
+          await withTimeout(roomRef.update({ status: "secret_setup" }), 5000);
+        }
+
+        setMessage("setupMessage", "");
+        listenToRoom(matchedCode);
+      } else {
+        // Auto Create new room & wait for incoming match
+        const newCode = makeCode();
+        const roomRef = db.ref(`rooms/${newCode}`);
+
+        const sharedSecret = (mode === "lawan" || mode === "kawan") ? generateSecret(digits) : null;
+        const roomData = {
+          code: newCode,
+          mode,
+          digits,
+          maxGuesses,
+          turnTime,
+          status: "waiting",
+          created_at: Date.now()
+        };
+        if (sharedSecret) roomData.sharedSecret = sharedSecret;
+
+        await withTimeout(roomRef.set(roomData), 5000);
+        await withTimeout(roomRef.child("player1").set({ id: userId, name: playerName, ready: true }), 5000);
+
+        playerNumber = 1;
+        room = { code: newCode, mode, digits, maxGuesses, turnTime };
+        hasSubmittedSecret = false;
+
+        const roomCodeDisp = $("roomCodeDisplay");
+        if (roomCodeDisp) roomCodeDisp.textContent = newCode;
+        setMessage("waitingTitle", "Pencarian Lawan Otomatis");
+        setMessage("waitingDesc", "Sistem sedang mencari lawan dengan pengaturan yang sama...");
+
+        setMessage("setupMessage", "");
+        showScreen("waitingScreen");
+        listenToRoom(newCode);
+      }
+    } catch (err) {
+      console.error(err);
+      setMessage("setupMessage", "Gagal mencari lawan: " + err.message);
+    }
+  });
+}
+
+
+/* =========================================================
    BUAT ROOM / LATIHAN
 ========================================================= */
 
@@ -246,7 +349,7 @@ if (createBtn) {
     try {
       const roomRef = db.ref(`rooms/${code}`);
 
-      // MODE LAWAN & KAWAN (Menunggu lawan dulu, server generate secret otomatis saat mulai)
+      // MODE LAWAN & KAWAN
       if (mode === "lawan" || mode === "kawan") {
         const sharedSecret = generateSecret(digits);
         await withTimeout(roomRef.set({
@@ -276,7 +379,7 @@ if (createBtn) {
         return;
       }
 
-      // MODE DUEL & LARI (Manual Secret Setup)
+      // MODE DUEL & LARI
       await withTimeout(roomRef.set({
         code,
         mode,
@@ -411,7 +514,6 @@ function listenToRoom(code) {
     if (!r) return;
     currentRoomData = r;
 
-    // 1. Jika mode Duel/Lari dan kedua pemain sudah mengisi secret, update status ke playing
     if (r.status === "secret_setup" && r.player1?.secret && r.player2?.secret) {
       r.status = "playing";
       currentRoomRef.update({
@@ -421,7 +523,6 @@ function listenToRoom(code) {
       }).catch(() => {});
     }
 
-    // Update scoreboard points
     let p1Pts = 0, p2Pts = 0;
     if (r.player1?.id) {
       db.ref(`users/${r.player1.id}/points`).once("value").then(s => {
@@ -437,7 +538,6 @@ function listenToRoom(code) {
     }
     updatePlayersMeta(r.player1?.name, p1Pts, r.player2?.name, p2Pts);
 
-    // 2. Routing berdasarkan status
     if (r.status === "waiting") {
       showScreen("waitingScreen");
     }
@@ -581,7 +681,9 @@ function startGameSession(turn) {
     else gameModeEl.textContent = "Lari";
   }
 
-  // Label kustom untuk mode Kawan & Lawan
+  // Update Judul Maksimal Tebakan
+  setMessage("historyTitle", "Maksimal Tebakan: " + (room.maxGuesses || 20));
+
   const yourHeader = document.querySelector(".history-box.yours h3 span");
   const theirHeader = document.querySelector(".history-box.theirs h3 span");
   if (room.mode === "kawan") {
@@ -784,7 +886,6 @@ async function finishMatch(winnerNum) {
     const d2 = s2?.val() || {};
 
     if (winnerNum === 3) {
-      // Kawan / Kerja sama menang bersama
       r1.update({ points: (d1.points||0)+1, wins: (d1.wins||0)+1, games: (d1.games||0)+1 }).catch(()=>{});
       r2.update({ points: (d2.points||0)+1, wins: (d2.wins||0)+1, games: (d2.games||0)+1 }).catch(()=>{});
     } else if (winnerNum === 1) {
@@ -916,7 +1017,7 @@ function resetApp() {
   if (showSecBtn) showSecBtn.textContent = "Tampilkan";
 
   renderHistories();
-  setMessage("setupMessage", "", "");
+  setMessage("setupMessage", "");
   setMessage("secretMessage", "");
   setMessage("guessMessage", "");
   showScreen("setupScreen");

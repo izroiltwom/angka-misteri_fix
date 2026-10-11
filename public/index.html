@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Angka Misteri — Logika dan Keberuntungan</title>
+  <title>Angka Misteri v1.0.3 — Logika dan Keberuntungan</title>
   <meta name="theme-color" content="#050817">
   <link rel="stylesheet" href="app.css">
 </head>
@@ -13,7 +13,7 @@
   <div class="card">
     <header class="brand-row">
       <div class="brand-side logic"><span class="brand-icon">🧠</span><span>LOGIKA</span></div>
-      <div class="brand-title"><span class="eyebrow">GAME TEBAK ANGKA</span><h1><span>Angka</span> Misteri</h1><p>Logika & Keberuntungan</p></div>
+      <div class="brand-title"><span class="eyebrow">GAME TEBAK ANGKA v1.0.3</span><h1><span>Angka</span> Misteri</h1><p>Logika & Keberuntungan</p></div>
       <div class="brand-side luck"><span class="brand-icon">🍀</span><span>KEBERUNTUNGAN</span></div>
     </header>
 
@@ -43,11 +43,12 @@
         </div>
         <div id="duelSetting"><label for="turnTime">Waktu Per Giliran</label><select id="turnTime"><option value="15">15 detik</option><option value="30" selected>30 detik</option><option value="60">60 detik</option><option value="90">90 detik</option></select></div>
         <div id="lariSetting" class="hidden"><label for="maxGuesses">Maksimal Tebakan</label><select id="maxGuesses"><option value="20">20 Tebakan</option><option value="30" selected>30 Tebakan</option></select></div>
-        <label for="roomCode">Kode Room <span class="optional-label">• kosongkan untuk buat baru</span></label>
+        <label for="roomCode">Kode Room <span class="optional-label">• kosongkan untuk pencarian/buat baru</span></label>
         <input id="roomCode" type="text" maxlength="8" placeholder="Contoh: ROOM123 atau kosongkan">
         <div class="buttons">
-          <button id="createBtn" class="primary-btn">✦ Buat Room Baru</button>
-          <button id="joinBtn" class="secondary-btn">↗ Masuk Room</button>
+          <button id="matchmakeBtn" class="primary-btn" style="grid-column: 1 / -1; background: linear-gradient(135deg, #28c7ff, #7c4dff); font-size: 15px;">🔍 Cari Lawan Otomatis</button>
+          <button id="createBtn" class="secondary-btn">✦ Buat Kode Room</button>
+          <button id="joinBtn" class="secondary-btn">↗ Masuk Kode Room</button>
         </div>
         <p id="setupMessage" class="message"></p>
       </div>
@@ -56,9 +57,9 @@
     <!-- WAITING SCREEN -->
     <section id="waitingScreen" class="screen hidden">
       <div class="center-card">
-        <span class="eyebrow">MENUNGGU PEMAIN</span>
-        <h2>Room Siap</h2>
-        <p>Bagikan kode ini ke lawanmu agar bisa bergabung.</p>
+        <span class="eyebrow">PENCARIAN / WAITING ROOM</span>
+        <h2 id="waitingTitle">Room Siap</h2>
+        <p id="waitingDesc">Bagikan kode ini ke lawanmu atau tunggu pencarian otomatis.</p>
         <div class="room-box"><span>KODE ROOM</span><strong id="roomCodeDisplay">----</strong></div>
         <p id="waitingMessage">Menunggu pemain kedua bergabung...</p>
         <button id="cancelBtn" class="secondary-btn">← Batalkan Room</button>
@@ -102,7 +103,7 @@
       </form>
       <p id="guessMessage" class="message"></p>
       <div class="history-heading">
-        <div><span class="eyebrow">RIWAYAT</span><h3>20 tebakan terakhir</h3></div>
+        <div><span class="eyebrow">RIWAYAT</span><h3 id="historyTitle">Maksimal Tebakan: 20</h3></div>
         <span class="history-limit">BERDAMPINGAN</span>
       </div>
       <div class="histories">
