@@ -694,12 +694,14 @@ function startGameSession(turn) {
     if (theirHeader) theirHeader.innerHTML = "🍀 Tebakan Lawan";
   }
 
-  if (secretDisp) {
-    if (room.mode === "lawan" || room.mode === "kawan") {
-      secretDisp.textContent = currentRoomData?.sharedSecret || "••••••";
-    } else {
-      secretDisp.textContent = secretVisible ? secret : "•".repeat(room.digits);
-    }
+  if (room.mode === "lawan" || room.mode === "kawan") {
+    safeAdd("showSecretBtn", "hidden");
+    setMessage("secretDisplayLabel", "Angka Rahasia Target Server");
+    if (secretDisp) secretDisp.textContent = "•".repeat(room.digits);
+  } else {
+    safeRemove("showSecretBtn", "hidden");
+    setMessage("secretDisplayLabel", "Angka Rahasia Anda");
+    if (secretDisp) secretDisp.textContent = secretVisible ? secret : "•".repeat(room.digits);
   }
 
   if (guessInput) guessInput.value = "";
@@ -935,9 +937,20 @@ function showResultScreen(winner, r) {
 
   if (resP1) resP1.textContent = p1N;
   if (resP2) resP2.textContent = p2N;
-  const secretTarget = r.sharedSecret || r.secrets?.player1 || r.player1?.secret || "-";
-  if (resSec1) resSec1.textContent = secretTarget;
-  if (resSec2) resSec2.textContent = secretTarget;
+
+  if (r.mode === "lawan" || r.mode === "kawan") {
+    const targetSec = r.sharedSecret || "-";
+    if (resSec1) resSec1.textContent = targetSec;
+    if (resSec2) resSec2.textContent = targetSec;
+  } else if (r.mode === "latihan") {
+    if (resSec1) resSec1.textContent = practiceSecret || "-";
+    if (resSec2) resSec2.textContent = practiceSecret || "-";
+  } else {
+    const s1 = r.secrets?.player1 || r.player1?.secret || "-";
+    const s2 = r.secrets?.player2 || r.player2?.secret || "-";
+    if (resSec1) resSec1.textContent = s1;
+    if (resSec2) resSec2.textContent = s2;
+  }
 
   if (resLine) {
     if (r.mode === "kawan") {
@@ -980,6 +993,7 @@ function showResultScreen(winner, r) {
 const showSecBtn = $("showSecretBtn");
 if (showSecBtn) {
   showSecBtn.addEventListener("click", () => {
+    if (room.mode === "lawan" || room.mode === "kawan") return;
     secretVisible = !secretVisible;
     const secDisp = $("secretDisplay");
     if (secDisp) secDisp.textContent = secretVisible ? secret : "•".repeat(room.digits);
