@@ -49,6 +49,7 @@
           <button id="matchmakeBtn" class="primary-btn" style="grid-column: 1 / -1; background: linear-gradient(135deg, #28c7ff, #7c4dff); font-size: 15px;">🔍 Cari Lawan Otomatis</button>
           <button id="createBtn" class="secondary-btn">✦ Buat Kode Room</button>
           <button id="joinBtn" class="secondary-btn">↗ Masuk Kode Room</button>
+          <button id="spectateBtn" class="secondary-btn" style="grid-column: 1 / -1; margin-top: 4px; background: rgba(155, 92, 255, 0.15); border: 1px solid rgba(155, 92, 255, 0.3); color: #cbb2ff;">👀 Tonton Pertandingan Live</button>
         </div>
         <p id="setupMessage" class="message"></p>
       </div>
@@ -63,6 +64,19 @@
         <div class="room-box"><span>KODE ROOM</span><strong id="roomCodeDisplay">----</strong></div>
         <p id="waitingMessage">Menunggu pemain kedua bergabung...</p>
         <button id="cancelBtn" class="secondary-btn">← Batalkan Room</button>
+      </div>
+    </section>
+
+    <!-- SPECTATE SCREEN -->
+    <section id="spectateScreen" class="screen hidden">
+      <div class="center-card">
+        <span class="eyebrow">TONTON LIVE</span>
+        <h2>Pertandingan Berlangsung</h2>
+        <p>Pilih pertandingan aktif di bawah untuk menonton secara langsung.</p>
+        <div id="activeMatchesList" class="matches-list" style="margin: 20px 0; display: grid; gap: 10px; max-height: 380px; overflow-y: auto;">
+          <p class="field-hint">Mencari pertandingan aktif...</p>
+        </div>
+        <button id="backFromSpectateBtn" class="secondary-btn full-btn">← Kembali ke Lobby</button>
       </div>
     </section>
 
@@ -83,7 +97,10 @@
     <section id="gameScreen" class="screen hidden">
       <div class="game-header">
         <div><span class="eyebrow">SEDANG BERTANDING</span><h2 id="gameTitle">Angka Misteri</h2></div>
-        <div class="room-chip"><span>ROOM</span><strong id="gameRoom">----</strong><span id="gameMode">Duel</span></div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span id="spectatorBadge" class="hidden" style="color: #ffc857; font-size: 11px; font-weight: 800; background: rgba(255,200,87,0.12); padding: 5px 12px; border-radius: 99px; border: 1px solid rgba(255,200,87,0.28);">👁️ MODE PENONTON</span>
+          <div class="room-chip"><span>ROOM</span><strong id="gameRoom">----</strong><span id="gameMode">Duel</span></div>
+        </div>
       </div>
       <div class="scoreboard" id="scoreboard">
         <div class="player-card" id="playerCard1"><span class="player-badge">🧠</span><div class="player-meta"><small>LOGIKA</small><strong id="player1Name">Pemain A</strong></div><div class="player-score"><small>POIN</small><strong id="player1Points">0</strong></div></div>

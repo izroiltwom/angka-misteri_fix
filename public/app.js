@@ -10,7 +10,8 @@ function safeToggle(id, cls, force) { const el = $(id); if (el) el.classList.tog
 
 let userId = localStorage.getItem("am_user_id") || "";
 let playerName = localStorage.getItem("am_player_name") || "";
-let playerNumber = 0; // 1 or 2
+let playerNumber = 0; // 1, 2, or 0 (spectator)
+let isSpectator = false;
 
 let room = {
   code: "",
@@ -117,7 +118,8 @@ async function ensureProfile() {
 ========================================================= */
 
 function showScreen(screenId) {
-  ["setupScreen", "waitingScreen", "secretScreen", "gameScreen", "resultScreen"].forEach(id => {
+  console.log("SHOW SCREEN:", screenId);
+  ["setupScreen", "waitingScreen", "spectateScreen", "secretScreen", "gameScreen", "resultScreen"].forEach(id => {
     safeAdd(id, "hidden");
   });
   safeRemove(screenId, "hidden");
@@ -180,6 +182,76 @@ if (modeSelect) {
 
 
 /* =========================================================
+   SPECTATOR MODE (TONTON LIVE)
+========================================================= */
+
+const spectateBtn = $("spectateBtn");
+if (spectateBtn) {
+  spectateBtn.addEventListener("click", async () => {
+    if (!db) {
+      setMessage("setupMessage", "Firebase belum terhubung.");
+      return;
+    }
+    showScreen("spectateScreen");
+    loadActiveMatches();
+  });
+}
+
+const backFromSpectateBtn = $("backFromSpectateBtn");
+if (backFromSpectateBtn) {
+  backFromSpectateBtn.addEventListener("click", () => {
+    showScreen("setupScreen");
+  });
+}
+
+async function loadActiveMatches() {
+  const container = $("activeMatchesList");
+  if (!container) return;
+  container.innerHTML = '<p class="field-hint">Memuat daftar pertandingan live...</p>';
+
+  try {
+    const snap = await withTimeout(db.ref("rooms").once("value"), 5000);
+    const allRooms = snap.val() || {};
+    const active = [];
+
+    for (const [code, r] of Object.entries(allRooms)) {
+      if (r && (r.status === "playing" || r.status === "secret_setup")) {
+        active.push(r);
+      }
+    }
+
+    if (!active.length) {
+      container.innerHTML = '<p class="field-hint">Belum ada pertandingan aktif saat ini.</p>';
+      return;
+    }
+
+    container.innerHTML = active.map(r => {
+      const p1 = r.player1?.name || "Pemain 1";
+      const p2 = r.player2?.name || "Pemain 2";
+      const modeText = r.mode === "duel" ? "Duel" : (r.mode === "lari" ? "Lari" : (r.mode === "lawan" ? "Lawan" : "Kawan"));
+      return `
+        <div class="match-card">
+          <div>
+            <strong>${p1} vs ${p2}</strong>
+            <span>Room: ${r.code} • Mode: ${modeText} (${r.digits} Digit)</span>
+          </div>
+          <button onclick="watchMatch('${r.code}')">👁️ Tonton</button>
+        </div>
+      `;
+    }).join("");
+  } catch (err) {
+    container.innerHTML = `<p class="field-hint" style="color: var(--danger);">Gagal memuat: ${err.message}</p>`;
+  }
+}
+
+window.watchMatch = function(code) {
+  isSpectator = true;
+  playerNumber = 0;
+  listenToRoom(code);
+};
+
+
+/* =========================================================
    PENCARIAN LAWAN OTOMATIS (MATCHMAKING)
 ========================================================= */
 
@@ -230,6 +302,7 @@ if (matchmakeBtn) {
         playerNumber = 2;
         room = { code: matchedCode, mode: r.mode, digits: r.digits, maxGuesses: r.maxGuesses, turnTime: r.turnTime };
         hasSubmittedSecret = false;
+        isSpectator = false;
 
         if (r.mode === "lawan" || r.mode === "kawan") {
           await withTimeout(roomRef.child("player2").set({ id: userId, name: playerName, ready: true }), 5000);
@@ -264,6 +337,7 @@ if (matchmakeBtn) {
         playerNumber = 1;
         room = { code: newCode, mode, digits, maxGuesses, turnTime };
         hasSubmittedSecret = false;
+        isSpectator = false;
 
         const roomCodeDisp = $("roomCodeDisplay");
         if (roomCodeDisp) roomCodeDisp.textContent = newCode;
@@ -304,6 +378,7 @@ if (createBtn) {
       secret = "";
       secretVisible = false;
       playerNumber = 1;
+      isSpectator = false;
 
       safeAdd("scoreboard", "hidden");
       const secretDisp = $("secretDisplay");
@@ -371,6 +446,7 @@ if (createBtn) {
 
         playerNumber = 1;
         room = { code, mode, digits, maxGuesses, turnTime };
+        isSpectator = false;
         const roomCodeDisp = $("roomCodeDisplay");
         if (roomCodeDisp) roomCodeDisp.textContent = code;
         setMessage("setupMessage", "");
@@ -399,6 +475,7 @@ if (createBtn) {
       playerNumber = 1;
       room = { code, mode, digits, maxGuesses, turnTime };
       hasSubmittedSecret = false;
+      isSpectator = false;
 
       const roomCodeDisp = $("roomCodeDisplay");
       if (roomCodeDisp) roomCodeDisp.textContent = code;
@@ -457,6 +534,7 @@ if (joinBtn) {
       playerNumber = 2;
       room = { code: r.code, mode: r.mode, digits: r.digits, maxGuesses: r.maxGuesses, turnTime: r.turnTime };
       hasSubmittedSecret = false;
+      isSpectator = false;
 
       if (r.mode === "lawan" || r.mode === "kawan") {
         await withTimeout(roomRef.child("player2").set({
@@ -539,9 +617,13 @@ function listenToRoom(code) {
     updatePlayersMeta(r.player1?.name, p1Pts, r.player2?.name, p2Pts);
 
     if (r.status === "waiting") {
-      showScreen("waitingScreen");
+      if (!isSpectator) showScreen("waitingScreen");
     }
     else if (r.status === "secret_setup") {
+      if (isSpectator) {
+        setMessage("setupMessage", "Menunggu kedua pemain menyimpan angka rahasia...");
+        return;
+      }
       const mySecret = r[`player${playerNumber}`]?.secret;
       if (!mySecret && !hasSubmittedSecret) {
         const secretScreenEl = $("secretScreen");
@@ -570,7 +652,7 @@ function listenToRoom(code) {
       processGuesses(r.guesses);
 
       if (r.mode === "duel" || r.mode === "lawan" || r.mode === "kawan") {
-        if (r.turnDeadline && Date.now() > r.turnDeadline && r.currentTurn === playerNumber) {
+        if (r.turnDeadline && Date.now() > r.turnDeadline && r.currentTurn === playerNumber && !isSpectator) {
           const nextT = playerNumber === 1 ? 2 : 1;
           currentRoomRef.update({ currentTurn: nextT, turnDeadline: Date.now() + r.turnTime * 1000 });
         }
@@ -659,7 +741,22 @@ if (forceStartBtn) {
 function startGameSession(turn) {
   safeRemove("scoreboard", "hidden");
   const secretDisp = $("secretDisplay");
-  if (secretDisp && secretDisp.parentElement) secretDisp.parentElement.classList.remove("hidden");
+  if (secretDisp && secretDisp.parentElement) {
+    if (isSpectator) {
+      secretDisp.parentElement.classList.add("hidden");
+    } else {
+      secretDisp.parentElement.classList.remove("hidden");
+    }
+  }
+
+  if (isSpectator) {
+    safeAdd("guessForm", "hidden");
+    safeRemove("spectatorBadge", "hidden");
+  } else {
+    safeRemove("guessForm", "hidden");
+    safeAdd("spectatorBadge", "hidden");
+  }
+
   safeRemove("histories", "practice-history");
   const oppHist = $("opponentHistory");
   if (oppHist && oppHist.parentElement) oppHist.parentElement.classList.remove("hidden");
@@ -681,7 +778,6 @@ function startGameSession(turn) {
     else gameModeEl.textContent = "Lari";
   }
 
-  // Update Judul Maksimal Tebakan
   setMessage("historyTitle", "Maksimal Tebakan: " + (room.maxGuesses || 20));
 
   const yourHeader = document.querySelector(".history-box.yours h3 span");
@@ -694,14 +790,16 @@ function startGameSession(turn) {
     if (theirHeader) theirHeader.innerHTML = "🍀 Tebakan Lawan";
   }
 
-  if (room.mode === "lawan" || room.mode === "kawan") {
-    safeAdd("showSecretBtn", "hidden");
-    setMessage("secretDisplayLabel", "Angka Rahasia Target Server");
-    if (secretDisp) secretDisp.textContent = "•".repeat(room.digits);
-  } else {
-    safeRemove("showSecretBtn", "hidden");
-    setMessage("secretDisplayLabel", "Angka Rahasia Anda");
-    if (secretDisp) secretDisp.textContent = secretVisible ? secret : "•".repeat(room.digits);
+  if (secretDisp) {
+    if (room.mode === "lawan" || room.mode === "kawan") {
+      safeAdd("showSecretBtn", "hidden");
+      setMessage("secretDisplayLabel", "Angka Rahasia Target Server");
+      secretDisp.textContent = "•".repeat(room.digits);
+    } else {
+      safeRemove("showSecretBtn", "hidden");
+      setMessage("secretDisplayLabel", "Angka Rahasia Anda");
+      secretDisp.textContent = secretVisible ? secret : "•".repeat(room.digits);
+    }
   }
 
   if (guessInput) guessInput.value = "";
@@ -712,6 +810,12 @@ function startGameSession(turn) {
 }
 
 function updateTurnDisplay(turn, seconds, endsAt) {
+  if (isSpectator) {
+    setMessage("turnStatus", turn === 1 ? "🎯 Giliran Pemain 1" : "🎯 Giliran Pemain 2");
+    stopTimer();
+    return;
+  }
+
   if (room.mode === "lari" || room.mode === "kawan") {
     setMessage("turnStatus", room.mode === "kawan" ? "🤝 Kerja sama menebak bersama!" : "⚡ Silakan menebak!");
     const guessBtn = $("guessBtn");
@@ -762,7 +866,7 @@ const guessForm = $("guessForm");
 if (guessForm) {
   guessForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    if (isProcessingGuess) return;
+    if (isProcessingGuess || isSpectator) return;
 
     const guessInput = $("guess");
     const val = guessInput ? guessInput.value.trim() : "";
@@ -819,7 +923,7 @@ if (guessForm) {
 
       if (res.betul === room.digits) {
         if (room.mode === "kawan") {
-          await finishMatch(3); // Kawan menang bersama
+          await finishMatch(3);
         } else {
           await finishMatch(playerNumber);
         }
@@ -841,8 +945,13 @@ function processGuesses(guessesObj = {}) {
 
   const mapWithSeq = (arr) => arr.map((item, idx) => ({ ...item, seq: idx + 1 })).reverse().slice(0, 20);
 
-  myHistory = mapWithSeq(playerNumber === 1 ? p1 : p2);
-  opponentHistory = mapWithSeq(playerNumber === 1 ? p2 : p1);
+  if (isSpectator) {
+    myHistory = mapWithSeq(p1);
+    opponentHistory = mapWithSeq(p2);
+  } else {
+    myHistory = mapWithSeq(playerNumber === 1 ? p1 : p2);
+    opponentHistory = mapWithSeq(playerNumber === 1 ? p2 : p1);
+  }
   renderHistories();
 }
 
@@ -993,7 +1102,7 @@ function showResultScreen(winner, r) {
 const showSecBtn = $("showSecretBtn");
 if (showSecBtn) {
   showSecBtn.addEventListener("click", () => {
-    if (room.mode === "lawan" || room.mode === "kawan") return;
+    if (room.mode === "lawan" || room.mode === "kawan" || isSpectator) return;
     secretVisible = !secretVisible;
     const secDisp = $("secretDisplay");
     if (secDisp) secDisp.textContent = secretVisible ? secret : "•".repeat(room.digits);
@@ -1014,6 +1123,10 @@ function resetApp() {
   detachRoomListener();
   stopTimer();
   playerNumber = 0;
+  isSpectator = false;
+  safeRemove("guessForm", "hidden");
+  safeAdd("spectatorBadge", "hidden");
+
   room = { code: "", mode: "duel", digits: 6, maxGuesses: 20, turnTime: 30 };
   secret = "";
   secretVisible = false;
