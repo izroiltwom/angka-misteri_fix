@@ -213,15 +213,25 @@ async function loadActiveMatches() {
     const snap = await withTimeout(db.ref("rooms").once("value"), 5000);
     const allRooms = snap.val() || {};
     const active = [];
+    const now = Date.now();
 
     for (const [code, r] of Object.entries(allRooms)) {
       if (r && (r.status === "playing" || r.status === "secret_setup")) {
-        active.push(r);
+        const p1G = Object.values(r.guesses?.player1 || {}).map(g => g.timestamp || 0);
+        const p2G = Object.values(r.guesses?.player2 || {}).map(g => g.timestamp || 0);
+        const lastGuessTime = Math.max(0, ...p1G, ...p2G);
+        const lastAct = r.last_active || Math.max(r.created_at || 0, lastGuessTime);
+        const ageSec = Math.floor((now - lastAct) / 1000);
+
+        // Hanya tampilkan jika aktivitas kurang dari 20 menit
+        if (ageSec < 1200) {
+          active.push({ ...r, lastAct, ageSec });
+        }
       }
     }
 
-    // Urutkan pertandingan paling baru di atas
-    active.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+    // Urutkan berdasarkan aktivitas paling baru
+    active.sort((a, b) => b.lastAct - a.lastAct);
 
     if (!active.length) {
       container.innerHTML = '<p class="field-hint">Belum ada pertandingan aktif saat ini.</p>';
@@ -232,11 +242,18 @@ async function loadActiveMatches() {
       const p1 = r.player1?.name || "Pemain 1";
       const p2 = r.player2?.name || "Pemain 2";
       const modeText = r.mode === "duel" ? "Duel" : (r.mode === "lari" ? "Lari" : (r.mode === "lawan" ? "Lawan" : "Kawan"));
+
+      const isLive = r.ageSec < 120; // Aktif dalam 2 menit terakhir
+      const statusPill = isLive
+        ? `<span class="status-pill live">🟢 AKTIF LIVE (${r.ageSec < 10 ? 'Baru saja' : r.ageSec + ' dtk lalu'})</span>`
+        : `<span class="status-pill idle">🟡 DITINGGALKAN / IDLE (${Math.floor(r.ageSec / 60)} mnt lalu)</span>`;
+
       return `
         <div class="match-card">
           <div>
             <strong>${p1} vs ${p2}</strong>
             <span>Room: ${r.code} • Mode: ${modeText} (${r.digits} Digit)</span>
+            ${statusPill}
           </div>
           <button onclick="watchMatch('${r.code}')">👁️ Tonton</button>
         </div>
@@ -920,6 +937,7 @@ if (guessForm) {
         count,
         timestamp: Date.now()
       });
+      await currentRoomRef.update({ last_active: Date.now() });
 
       if (guessInput) guessInput.value = "";
       setMessage("guessMessage", "");
