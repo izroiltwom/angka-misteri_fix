@@ -1,5 +1,5 @@
 // =========================================================
-// ANGKA MISTERI v1.0.3 — REFACTORED CLEAN ENGINE (FIREBASE RTDB)
+// ANGKA MISTERI v1.0.4 — REFACTORED CLEAN ENGINE (FIREBASE RTDB)
 // =========================================================
 
 const $ = (id) => document.getElementById(id);
@@ -7,6 +7,20 @@ const $ = (id) => document.getElementById(id);
 function safeAdd(id, cls) { const el = $(id); if (el) el.classList.add(cls); }
 function safeRemove(id, cls) { const el = $(id); if (el) el.classList.remove(cls); }
 function safeToggle(id, cls, force) { const el = $(id); if (el) el.classList.toggle(cls, force); }
+
+const ROOM_MAX_INACTIVE_MS = 5 * 60 * 1000; // Room kadaluwarsa/ditinggalkan setelah 5 menit (300.000 ms)
+
+function isRoomExpired(r) {
+  if (!r) return true;
+  const now = Date.now();
+  const p1G = Object.values(r.guesses?.player1 || {}).map(g => g.timestamp || 0);
+  const p2G = Object.values(r.guesses?.player2 || {}).map(g => g.timestamp || 0);
+  const lastGuessTime = Math.max(0, ...p1G, ...p2G);
+  const lastAct = r.last_active || Math.max(r.created_at || 0, lastGuessTime);
+
+  if (!lastAct) return false;
+  return (now - lastAct) > ROOM_MAX_INACTIVE_MS;
+}
 
 let userId = localStorage.getItem("am_user_id") || "";
 let playerName = localStorage.getItem("am_player_name") || "";
@@ -216,15 +230,23 @@ async function loadActiveMatches() {
     const now = Date.now();
 
     for (const [code, r] of Object.entries(allRooms)) {
-      if (r && (r.status === "playing" || r.status === "secret_setup")) {
+      if (!r) continue;
+
+      if (isRoomExpired(r)) {
+        // Hapus room kadaluwarsa (> 5 menit)
+        db.ref(`rooms/${code}`).remove().catch(() => {});
+        continue;
+      }
+
+      if (r.status === "playing" || r.status === "secret_setup") {
         const p1G = Object.values(r.guesses?.player1 || {}).map(g => g.timestamp || 0);
         const p2G = Object.values(r.guesses?.player2 || {}).map(g => g.timestamp || 0);
         const lastGuessTime = Math.max(0, ...p1G, ...p2G);
         const lastAct = r.last_active || Math.max(r.created_at || 0, lastGuessTime);
         const ageSec = Math.floor((now - lastAct) / 1000);
 
-        // Hanya tampilkan jika aktivitas kurang dari 20 menit
-        if (ageSec < 1200) {
+        // Hanya tampilkan jika aktivitas dalam 5 menit terakhir (300 detik)
+        if (ageSec < 300) {
           active.push({ ...r, lastAct, ageSec });
         }
       }
@@ -298,8 +320,15 @@ if (matchmakeBtn) {
 
       let matchedCode = null;
       for (const [c, r] of Object.entries(allRooms)) {
+        if (!r) continue;
+
+        // Jika room sudah ditinggalkan/kadaluwarsa (> 5 menit), hapus dari database
+        if (isRoomExpired(r)) {
+          db.ref(`rooms/${c}`).remove().catch(() => {});
+          continue;
+        }
+
         if (
-          r &&
           r.status === "waiting" &&
           r.mode === mode &&
           Number(r.digits) === digits &&
@@ -324,12 +353,13 @@ if (matchmakeBtn) {
         hasSubmittedSecret = false;
         isSpectator = false;
 
+        const now = Date.now();
         if (r.mode === "lawan" || r.mode === "kawan") {
           await withTimeout(roomRef.child("player2").set({ id: userId, name: playerName, ready: true }), 5000);
-          await withTimeout(roomRef.update({ status: "playing", currentTurn: 1, turnDeadline: Date.now() + (r.turnTime || 30) * 1000 }), 5000);
+          await withTimeout(roomRef.update({ status: "playing", currentTurn: 1, turnDeadline: now + (r.turnTime || 30) * 1000, last_active: now }), 5000);
         } else {
           await withTimeout(roomRef.child("player2").set({ id: userId, name: playerName, ready: false }), 5000);
-          await withTimeout(roomRef.update({ status: "secret_setup" }), 5000);
+          await withTimeout(roomRef.update({ status: "secret_setup", last_active: now }), 5000);
         }
 
         setMessage("setupMessage", "");
@@ -340,6 +370,7 @@ if (matchmakeBtn) {
         const roomRef = db.ref(`rooms/${newCode}`);
 
         const sharedSecret = (mode === "lawan" || mode === "kawan") ? generateSecret(digits) : null;
+        const now = Date.now();
         const roomData = {
           code: newCode,
           mode,
@@ -347,7 +378,8 @@ if (matchmakeBtn) {
           maxGuesses,
           turnTime,
           status: "waiting",
-          created_at: Date.now()
+          created_at: now,
+          last_active: now
         };
         if (sharedSecret) roomData.sharedSecret = sharedSecret;
 
@@ -447,6 +479,7 @@ if (createBtn) {
       // MODE LAWAN & KAWAN
       if (mode === "lawan" || mode === "kawan") {
         const sharedSecret = generateSecret(digits);
+        const now = Date.now();
         await withTimeout(roomRef.set({
           code,
           mode,
@@ -455,7 +488,8 @@ if (createBtn) {
           turnTime,
           status: "waiting",
           sharedSecret,
-          created_at: Date.now()
+          created_at: now,
+          last_active: now
         }), 5000);
 
         await withTimeout(roomRef.child("player1").set({
@@ -476,6 +510,7 @@ if (createBtn) {
       }
 
       // MODE DUEL & LARI
+      const now = Date.now();
       await withTimeout(roomRef.set({
         code,
         mode,
@@ -483,7 +518,8 @@ if (createBtn) {
         maxGuesses,
         turnTime,
         status: "waiting",
-        created_at: Date.now()
+        created_at: now,
+        last_active: now
       }), 5000);
 
       await withTimeout(roomRef.child("player1").set({
@@ -542,6 +578,14 @@ if (joinBtn) {
       }
 
       const r = snap.val();
+
+      // Cek apakah room sudah ditinggalkan / kadaluwarsa lebih dari 5 menit
+      if (isRoomExpired(r)) {
+        roomRef.remove().catch(() => {});
+        setMessage("setupMessage", "Room sudah ditinggalkan (lebih dari 5 menit) dan tidak bisa dimasuki lagi.");
+        return;
+      }
+
       if (r.player1?.id === userId) {
         setMessage("setupMessage", "Tidak bisa masuk ke room sendiri.");
         return;
@@ -556,6 +600,7 @@ if (joinBtn) {
       hasSubmittedSecret = false;
       isSpectator = false;
 
+      const now = Date.now();
       if (r.mode === "lawan" || r.mode === "kawan") {
         await withTimeout(roomRef.child("player2").set({
           id: userId,
@@ -566,7 +611,8 @@ if (joinBtn) {
         await withTimeout(roomRef.update({
           status: "playing",
           currentTurn: 1,
-          turnDeadline: Date.now() + (r.turnTime || 30) * 1000
+          turnDeadline: now + (r.turnTime || 30) * 1000,
+          last_active: now
         }), 5000);
 
         setMessage("setupMessage", "");
@@ -580,7 +626,7 @@ if (joinBtn) {
         ready: false
       }), 5000);
 
-      await withTimeout(roomRef.update({ status: "secret_setup" }), 5000);
+      await withTimeout(roomRef.update({ status: "secret_setup", last_active: now }), 5000);
 
       setMessage("setupMessage", "");
       listenToRoom(code);
@@ -1141,6 +1187,14 @@ const cancelBtn = $("cancelBtn");
 if (cancelBtn) cancelBtn.addEventListener("click", resetApp);
 
 function resetApp() {
+  if (currentRoomRef && currentRoomData && !isSpectator) {
+    if (currentRoomData.status === "waiting") {
+      // Pembuat room membatalkan/keluar saat menunggu, hapus room agar tidak mengganggu matchmaking
+      currentRoomRef.remove().catch(() => {});
+    } else if (currentRoomData.status !== "finished") {
+      currentRoomRef.update({ last_active: Date.now() }).catch(() => {});
+    }
+  }
   detachRoomListener();
   stopTimer();
   playerNumber = 0;

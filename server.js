@@ -31,10 +31,10 @@ const ALLOWED_TURN_TIMES = [
 ];
 
 /*
-  Room tetap disimpan selama 10 menit
+  Room tetap disimpan selama 5 menit
   setelah kedua pemain terputus.
 */
-const ROOM_GRACE_TIME = 10 * 60 * 1000;
+const ROOM_GRACE_TIME = 5 * 60 * 1000;
 
 
 /* =========================================================
